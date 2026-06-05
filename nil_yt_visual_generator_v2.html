@@ -1,0 +1,573 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --c: #00F0FF; --p: #FF2D78; --pu: #a855f7;
+  --bg: #07070e; --bg2: #0d0d1a; --glass: rgba(0,240,255,0.05);
+  --gb: rgba(0,240,255,0.15); --gb2: rgba(0,240,255,0.08);
+}
+#app { font-family: 'SF Mono','Fira Code',monospace; background: var(--bg); color: #d0d0e8; border-radius: 12px; border: 0.5px solid var(--gb); overflow: hidden; }
+.topbar { background: rgba(0,240,255,0.03); border-bottom: 0.5px solid var(--gb); padding: 11px 18px; display: flex; align-items: center; gap: 10px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.topbar h1 { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: var(--c); text-transform: uppercase; }
+.topbar .ver { font-size: 10px; color: rgba(208,208,232,0.25); margin-left: auto; letter-spacing: 0.06em; }
+
+.modetabs { display: flex; border-bottom: 0.5px solid var(--gb); }
+.mtab { flex: 1; padding: 10px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; text-align: center; cursor: pointer; color: rgba(208,208,232,0.4); border-bottom: 2px solid transparent; transition: all 0.2s; }
+.mtab.active { color: var(--c); border-bottom-color: var(--c); background: rgba(0,240,255,0.04); }
+.mtab:hover:not(.active) { color: rgba(208,208,232,0.7); background: rgba(255,255,255,0.02); }
+
+.panel-wrap { display: flex; gap: 0; }
+.left-col { flex: 1; border-right: 0.5px solid var(--gb); }
+.right-col { width: 230px; }
+
+.section { padding: 14px 16px; border-bottom: 0.5px solid rgba(0,240,255,0.06); }
+.slabel { font-size: 9px; letter-spacing: 0.16em; color: rgba(0,240,255,0.4); text-transform: uppercase; margin-bottom: 10px; }
+
+.preview-16-9 { aspect-ratio: 16/9; background: #03030a; border-radius: 6px; position: relative; overflow: hidden; cursor: pointer; }
+.pgrid { position: absolute; inset: 0; background-image: linear-gradient(rgba(0,240,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,0.03) 1px,transparent 1px); background-size: 28px 28px; animation: gs 10s linear infinite; }
+@keyframes gs { to { background-position: 0 28px; } }
+canvas#cnv { position: absolute; inset: 0; width: 100%; height: 100%; }
+.prev-label { position: absolute; bottom: 6px; right: 8px; font-size: 9px; color: rgba(0,240,255,0.3); letter-spacing: 0.08em; }
+.logo-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.logo-txt { font-size: 20px; font-weight: 700; letter-spacing: 0.35em; color: rgba(255,255,255,0.85); text-transform: uppercase; transition: opacity 0.2s; }
+
+.field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+.field:last-child { margin-bottom: 0; }
+.flabel { font-size: 10px; color: rgba(208,208,232,0.4); letter-spacing: 0.07em; }
+input[type=text],input[type=number],select { background: rgba(0,0,0,0.5); border: 0.5px solid rgba(0,240,255,0.18); border-radius: 5px; color: #d0d0e8; font-family: 'SF Mono',monospace; font-size: 11px; padding: 6px 9px; outline: none; width: 100%; transition: border-color 0.15s; }
+input:focus,select:focus { border-color: var(--c); }
+select option { background: #0d0d1a; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.preset-btn { background: rgba(0,0,0,0.35); border: 0.5px solid rgba(0,240,255,0.12); border-radius: 5px; color: rgba(208,208,232,0.5); font-family: 'SF Mono',monospace; font-size: 10px; padding: 6px; cursor: pointer; text-align: center; transition: all 0.15s; letter-spacing: 0.04em; }
+.preset-btn:hover,.preset-btn.active { border-color: var(--c); color: var(--c); background: rgba(0,240,255,0.06); }
+
+.range-row { display: flex; align-items: center; gap: 8px; }
+input[type=range] { flex: 1; -webkit-appearance: none; height: 2px; background: rgba(0,240,255,0.18); border-radius: 2px; outline: none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--c); cursor: pointer; }
+.rval { font-size: 10px; color: var(--c); min-width: 28px; text-align: right; }
+
+.anim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.anim-card { background: rgba(0,0,0,0.35); border: 0.5px solid rgba(0,240,255,0.12); border-radius: 6px; padding: 9px 10px; cursor: pointer; transition: all 0.15s; }
+.anim-card.active { border-color: var(--c); background: rgba(0,240,255,0.07); }
+.anim-card:hover:not(.active) { border-color: rgba(0,240,255,0.3); }
+.anim-card .aname { font-size: 10px; letter-spacing: 0.08em; color: rgba(208,208,232,0.7); text-transform: uppercase; }
+.anim-card.active .aname { color: var(--c); }
+.anim-card .adesc { font-size: 9px; color: rgba(208,208,232,0.3); margin-top: 2px; }
+
+.color-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.color-swatch { width: 22px; height: 22px; border-radius: 4px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+.color-swatch.active { border-color: white; }
+
+.pexels-links-sm { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.plink { font-size: 9px; color: rgba(0,240,255,0.4); padding: 4px 7px; border: 0.5px solid rgba(0,240,255,0.08); border-radius: 4px; display: flex; justify-content: space-between; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.plink:hover { color: var(--c); border-color: rgba(0,240,255,0.35); background: rgba(0,240,255,0.04); }
+
+.btn-gen { background: rgba(0,240,255,0.08); border: 1px solid var(--c); border-radius: 7px; color: var(--c); cursor: pointer; font-family: 'SF Mono',monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; padding: 9px; text-align: center; text-transform: uppercase; transition: all 0.2s; width: 100%; }
+.btn-gen:hover { background: rgba(0,240,255,0.15); }
+.btn-sec { background: rgba(0,0,0,0.3); border: 0.5px solid rgba(255,45,120,0.25); border-radius: 7px; color: rgba(255,45,120,0.7); cursor: pointer; font-family: 'SF Mono',monospace; font-size: 10px; letter-spacing: 0.1em; padding: 7px; text-align: center; text-transform: uppercase; transition: all 0.2s; width: 100%; }
+.btn-sec:hover { border-color: var(--p); color: var(--p); background: rgba(255,45,120,0.06); }
+
+.code-block { background: rgba(0,0,0,0.7); border: 0.5px solid rgba(0,240,255,0.12); border-radius: 7px; padding: 11px; font-size: 9.5px; line-height: 1.75; color: rgba(0,240,255,0.65); white-space: pre; overflow-x: auto; display: none; }
+.code-block.show { display: block; }
+.copy-btns { display: none; gap: 7px; margin-top: 7px; }
+.copy-btns.show { display: flex; }
+
+.statusbar { background: rgba(0,0,0,0.25); border-top: 0.5px solid rgba(0,240,255,0.07); padding: 7px 18px; display: flex; align-items: center; gap: 7px; font-size: 9px; color: rgba(208,208,232,0.25); letter-spacing: 0.07em; }
+.sdot { width: 5px; height: 5px; border-radius: 50%; background: rgba(0,240,255,0.35); }
+
+.img-builder { padding: 14px 16px; }
+.img-canvas-wrap { aspect-ratio: 16/9; background: #03030a; border-radius: 6px; border: 0.5px solid rgba(0,240,255,0.15); overflow: hidden; position: relative; margin-bottom: 12px; }
+canvas#imgCnv { width: 100%; height: 100%; display: block; }
+
+.scheme-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+.scheme-card { background: rgba(0,0,0,0.4); border: 0.5px solid rgba(0,240,255,0.1); border-radius: 5px; padding: 7px 6px; cursor: pointer; text-align: center; font-size: 9px; letter-spacing: 0.08em; color: rgba(208,208,232,0.5); transition: all 0.15s; text-transform: uppercase; }
+.scheme-card.active { border-color: var(--c); color: var(--c); background: rgba(0,240,255,0.06); }
+
+.anim-toggle-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.atog { background: rgba(0,0,0,0.35); border: 0.5px solid rgba(0,240,255,0.1); border-radius: 5px; padding: 7px 5px; cursor: pointer; text-align: center; font-size: 9px; letter-spacing: 0.07em; color: rgba(208,208,232,0.4); transition: all 0.15s; text-transform: uppercase; }
+.atog.active { border-color: var(--pu); color: var(--pu); background: rgba(168,85,247,0.07); }
+</style>
+
+<div id="app">
+  <div class="topbar">
+    <div class="dot"></div>
+    <h1>NIL Visual Generator v2</h1>
+    <span class="ver">youtube // techno sets</span>
+  </div>
+
+  <div class="modetabs">
+    <div class="mtab active" id="tab-video" onclick="switchMode('video')">Video Loop</div>
+    <div class="mtab" id="tab-image" onclick="switchMode('image')">Image + Anim</div>
+  </div>
+
+  <div id="mode-video">
+    <div class="panel-wrap">
+      <div class="left-col">
+        <div class="section">
+          <div class="slabel">preview</div>
+          <div class="preview-16-9">
+            <div class="pgrid"></div>
+            <div class="tunnel-rings" id="tunnelRings" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"></div>
+            <div class="logo-center"><div class="logo-txt" id="logoPreview">NIL</div></div>
+            <div class="prev-label">16:9 // preview</div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="slabel">video style</div>
+          <div class="anim-grid">
+            <div class="anim-card active" data-style="tunnel" onclick="selectVStyle(this)"><div class="aname">Tunnel Loop</div><div class="adesc">depth / vortex</div></div>
+            <div class="anim-card" data-style="geometry" onclick="selectVStyle(this)"><div class="aname">Geometry</div><div class="adesc">abstract forms</div></div>
+            <div class="anim-card" data-style="particles" onclick="selectVStyle(this)"><div class="aname">Particles</div><div class="adesc">field / bokeh</div></div>
+            <div class="anim-card" data-style="dark_space" onclick="selectVStyle(this)"><div class="aname">Dark Space</div><div class="adesc">cosmos / void</div></div>
+          </div>
+          <div class="pexels-links-sm" id="pexelsLinks"></div>
+        </div>
+      </div>
+      <div class="right-col">
+        <div class="section">
+          <div class="slabel">identity</div>
+          <div class="field"><div class="flabel">ARTIST NAME</div><input type="text" id="artistName" value="NIL" oninput="updateVPreview()"></div>
+          <div class="field"><div class="flabel">LOGO PATH</div><input type="text" id="logoPath" placeholder="/path/to/logo.png"></div>
+          <div class="field"><div class="flabel">LOGO OPACITY</div>
+            <div class="range-row"><input type="range" min="30" max="100" value="80" step="1" id="opSlider" oninput="document.getElementById('opVal').textContent=this.value+'%'; document.getElementById('logoPreview').style.opacity=this.value/100"><span class="rval" id="opVal">80%</span></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="slabel">duration</div>
+          <div class="row2" style="margin-bottom:8px;">
+            <div class="preset-btn active" onclick="setDur(60,this)">60 min</div>
+            <div class="preset-btn" onclick="setDur(90,this)">90 min</div>
+            <div class="preset-btn" onclick="setDur(120,this)">2 h</div>
+            <div class="preset-btn" onclick="setDur(180,this)">3 h</div>
+          </div>
+          <div class="field"><div class="flabel">CUSTOM (MIN)</div><input type="number" id="customDur" placeholder="e.g. 75" min="1" max="600" oninput="setDurCustom(this.value)"></div>
+          <div id="durDisplay" style="font-size:10px;color:var(--c);margin-top:5px;letter-spacing:0.08em;">→ 60 min output</div>
+        </div>
+        <div class="section">
+          <div class="slabel">output</div>
+          <div class="field"><div class="flabel">RESOLUTION</div>
+            <select id="resolution"><option value="1920x1080">1920×1080 FHD</option><option value="2560x1440">2560×1440 QHD</option><option value="3840x2160">3840×2160 4K</option></select>
+          </div>
+          <div class="field"><div class="flabel">OUTPUT FILE</div><input type="text" id="outputFile" value="~/Desktop/NIL_set_visual.mp4"></div>
+        </div>
+        <div class="section" style="display:flex;flex-direction:column;gap:7px;">
+          <button class="btn-gen" onclick="genVideoScript()">GENERATE FFMPEG SCRIPT</button>
+          <button class="btn-sec" onclick="sendPrompt('Was sind die besten Pexels Suchbegriffe für düstere Techno Tunnel Visuals in 4K MP4?')">PEXELS TIPS</button>
+        </div>
+        <div class="section">
+          <div class="code-block" id="videoScript"></div>
+          <div class="copy-btns" id="videoCopyBtns">
+            <button class="btn-gen" style="flex:1;" onclick="copyCode('videoScript')">COPY</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mode-image" style="display:none;">
+    <div class="panel-wrap">
+      <div class="left-col">
+        <div class="img-builder">
+          <div class="slabel">live canvas preview</div>
+          <div class="img-canvas-wrap">
+            <canvas id="imgCnv"></canvas>
+          </div>
+          <div class="slabel" style="margin-bottom:8px;">color scheme</div>
+          <div class="scheme-row">
+            <div class="scheme-card active" data-scheme="cyber" onclick="setScheme(this)">Cyber</div>
+            <div class="scheme-card" data-scheme="void" onclick="setScheme(this)">Void</div>
+            <div class="scheme-card" data-scheme="acid" onclick="setScheme(this)">Acid</div>
+            <div class="scheme-card" data-scheme="blood" onclick="setScheme(this)">Blood</div>
+          </div>
+          <div class="slabel" style="margin-bottom:8px;">canvas animations (kombinierbar)</div>
+          <div class="anim-toggle-row">
+            <div class="atog active" data-anim="scanlines" onclick="toggleAnim(this)">Scanlines</div>
+            <div class="atog active" data-anim="particles" onclick="toggleAnim(this)">Particles</div>
+            <div class="atog active" data-anim="rings" onclick="toggleAnim(this)">Rings</div>
+            <div class="atog" data-anim="glitch" onclick="toggleAnim(this)">Glitch</div>
+            <div class="atog" data-anim="grid" onclick="toggleAnim(this)">Grid</div>
+            <div class="atog" data-anim="noise" onclick="toggleAnim(this)">Noise</div>
+          </div>
+        </div>
+      </div>
+      <div class="right-col">
+        <div class="section">
+          <div class="slabel">identity</div>
+          <div class="field"><div class="flabel">ARTIST NAME</div><input type="text" id="imgArtistName" value="NIL" oninput="redrawImgCanvas()"></div>
+          <div class="field"><div class="flabel">SUBTITLE</div><input type="text" id="imgSubtitle" value="DARK INDIE DANCE" oninput="redrawImgCanvas()"></div>
+          <div class="field"><div class="flabel">EVENT / DATE (optional)</div><input type="text" id="imgEvent" placeholder="BERGHAIN // 2025" oninput="redrawImgCanvas()"></div>
+        </div>
+        <div class="section">
+          <div class="slabel">logo opacity</div>
+          <div class="field"><div class="flabel">ARTIST TEXT OPACITY</div>
+            <div class="range-row"><input type="range" min="40" max="100" value="90" step="1" id="imgOpacity" oninput="document.getElementById('imgOpVal').textContent=this.value+'%';redrawImgCanvas()"><span class="rval" id="imgOpVal">90%</span></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="slabel">duration</div>
+          <div class="row2" style="margin-bottom:8px;">
+            <div class="preset-btn active" onclick="setDurImg(60,this)">60 min</div>
+            <div class="preset-btn" onclick="setDurImg(90,this)">90 min</div>
+            <div class="preset-btn" onclick="setDurImg(120,this)">2 h</div>
+            <div class="preset-btn" onclick="setDurImg(180,this)">3 h</div>
+          </div>
+          <div class="field"><div class="flabel">CUSTOM (MIN)</div><input type="number" id="customDurImg" placeholder="e.g. 75" min="1" max="600" oninput="setDurImgCustom(this.value)"></div>
+          <div id="durDisplayImg" style="font-size:10px;color:var(--c);margin-top:5px;letter-spacing:0.08em;">→ 60 min output</div>
+        </div>
+        <div class="section">
+          <div class="slabel">output</div>
+          <div class="field"><div class="flabel">RESOLUTION</div>
+            <select id="imgResolution"><option value="1920x1080">1920×1080 FHD</option><option value="2560x1440">2560×1440 QHD</option><option value="3840x2160">3840×2160 4K</option></select>
+          </div>
+          <div class="field"><div class="flabel">OUTPUT FILE</div><input type="text" id="imgOutputFile" value="~/Desktop/NIL_image_visual.mp4"></div>
+        </div>
+        <div class="section" style="display:flex;flex-direction:column;gap:7px;">
+          <button class="btn-gen" onclick="genImageScript()">GENERATE FFMPEG SCRIPT</button>
+          <button class="btn-sec" onclick="exportCanvasPNG()">EXPORT FRAME AS PNG</button>
+        </div>
+        <div class="section">
+          <div class="code-block" id="imageScript"></div>
+          <div class="copy-btns" id="imageCopyBtns">
+            <button class="btn-gen" style="flex:1;" onclick="copyCode('imageScript')">COPY</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar"><div class="sdot"></div><span id="statusTxt">ready // select mode → configure → generate</span></div>
+</div>
+
+<script>
+let curDur = 60, curDurImg = 60;
+let curVStyle = 'tunnel';
+let activeAnims = new Set(['scanlines','particles','rings']);
+let curScheme = 'cyber';
+let animFrame = null;
+let t = 0;
+let particles = [];
+
+const schemes = {
+  cyber:  { bg:'#03030a', c1:'#00F0FF', c2:'#FF2D78', c3:'#a855f7', text:'rgba(255,255,255,0.88)' },
+  void:   { bg:'#010108', c1:'#7f5af0', c2:'#2cb67d', c3:'#fffffe', text:'rgba(255,255,255,0.85)' },
+  acid:   { bg:'#050f00', c1:'#00ff41', c2:'#ffff00', c3:'#ff00ff', text:'rgba(200,255,200,0.9)' },
+  blood:  { bg:'#0a0002', c1:'#FF2D78', c2:'#ff6b00', c3:'#8b0000', text:'rgba(255,220,220,0.88)' },
+};
+
+const pexelsQ = {
+  tunnel:    [['dark tunnel 3d loop','dark+tunnel+3d+loop'],['neon wormhole vortex','neon+wormhole+vortex+dark'],['corridor depth abstract','corridor+depth+abstract+dark']],
+  geometry:  [['abstract geometry dark','abstract+geometry+dark+loop'],['sacred geometry animation','sacred+geometry+dark+animation'],['geometric 3d black','geometric+3d+shapes+black+loop']],
+  particles: [['particle field dark','particle+field+dark+abstract'],['bokeh dark loop','bokeh+dark+particles+loop'],['glitch particle system','glitch+particles+dark+loop']],
+  dark_space:[['dark space cosmos','dark+space+stars+cosmos+loop'],['nebula abstract dark','nebula+abstract+dark+loop'],['black void space','black+void+space+abstract+loop']],
+};
+
+function switchMode(m) {
+  document.getElementById('mode-video').style.display = m==='video'?'block':'none';
+  document.getElementById('mode-image').style.display = m==='image'?'block':'none';
+  document.getElementById('tab-video').classList.toggle('active', m==='video');
+  document.getElementById('tab-image').classList.toggle('active', m==='image');
+  if (m==='image') { setTimeout(()=>{ initImgCanvas(); startAnim(); }, 100); }
+  else { if(animFrame) cancelAnimationFrame(animFrame); }
+  document.getElementById('statusTxt').textContent = m==='video' ? 'mode: video loop' : 'mode: image + animation';
+}
+
+function setDur(v,el) {
+  curDur=v;
+  document.querySelectorAll('#mode-video .preset-btn').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('customDur').value='';
+  document.getElementById('durDisplay').textContent=`→ ${v>=60?Math.floor(v/60)+'h'+(v%60?(' '+v%60+'min'):''):v+'min'} output`;
+}
+function setDurCustom(v) { if(!v)return; curDur=parseInt(v); document.querySelectorAll('#mode-video .preset-btn').forEach(e=>e.classList.remove('active')); document.getElementById('durDisplay').textContent=`→ custom ${v}min output`; }
+function setDurImg(v,el) { curDurImg=v; document.querySelectorAll('#mode-image .preset-btn').forEach(e=>e.classList.remove('active')); el.classList.add('active'); document.getElementById('customDurImg').value=''; document.getElementById('durDisplayImg').textContent=`→ ${v>=60?Math.floor(v/60)+'h'+(v%60?(' '+v%60+'min'):''):v+'min'} output`; }
+function setDurImgCustom(v) { if(!v)return; curDurImg=parseInt(v); document.querySelectorAll('#mode-image .preset-btn').forEach(e=>e.classList.remove('active')); document.getElementById('durDisplayImg').textContent=`→ custom ${v}min output`; }
+
+function selectVStyle(el) {
+  document.querySelectorAll('[data-style]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  curVStyle = el.dataset.style;
+  renderPexels();
+  updateVRings();
+}
+function updateVPreview() { document.getElementById('logoPreview').textContent = (document.getElementById('artistName').value||'NIL').toUpperCase(); }
+function updateVRings() {
+  const rings = { tunnel:[[180,0.08],[120,0.06],[75,0.07],[42,0.08]], geometry:[[160,0.1],[100,0.08],[55,0.1]], particles:[[170,0.06],[95,0.08],[45,0.09]], dark_space:[[190,0.05],[130,0.07],[68,0.08],[28,0.11]] };
+  const colors = { tunnel:['#00F0FF','#FF2D78','#a855f7'], geometry:['#a855f7','#00F0FF'], particles:['#00F0FF','#FF2D78'], dark_space:['#a855f7','#00F0FF','#FF2D78'] };
+  const c = colors[curVStyle]||['#00F0FF'];
+  const r = rings[curVStyle]||[];
+  document.getElementById('tunnelRings').innerHTML = r.map((([s,a],i)=>`<div style="position:absolute;width:${s}%;height:${s}%;border-radius:50%;border:1px solid ${c[i%c.length]};opacity:${a*1.5};"></div>`)).join('');
+}
+function renderPexels() {
+  const qs = pexelsQ[curVStyle]||[];
+  document.getElementById('pexelsLinks').innerHTML = '<div style="font-size:9px;color:rgba(0,240,255,0.25);letter-spacing:0.1em;margin-bottom:5px;">PEXELS QUERIES</div>' + qs.map(([l,q])=>`<a class="plink" href="https://www.pexels.com/search/videos/${q}/" target="_blank"><span>${l}</span><span>↗</span></a>`).join('');
+}
+
+function imgCnv() { return document.getElementById('imgCnv'); }
+function imgCtx() { return imgCnv().getContext('2d'); }
+
+function initImgCanvas() {
+  const c = imgCnv();
+  const wrap = c.parentElement;
+  c.width = wrap.clientWidth * window.devicePixelRatio || 640;
+  c.height = Math.round(c.width * 9/16);
+  c.style.width = wrap.clientWidth + 'px';
+  c.style.height = Math.round(wrap.clientWidth * 9/16) + 'px';
+  initParticles(c.width, c.height);
+}
+
+function initParticles(w,h) {
+  particles = Array.from({length:60},()=>({ x:Math.random()*w, y:Math.random()*h, vx:(Math.random()-0.5)*0.4, vy:(Math.random()-0.5)*0.4, r:Math.random()*2+0.5, a:Math.random()*0.6+0.1 }));
+}
+
+function startAnim() {
+  if(animFrame) cancelAnimationFrame(animFrame);
+  function loop() {
+    t += 0.016;
+    redrawImgCanvas();
+    animFrame = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function redrawImgCanvas() {
+  const c = imgCnv();
+  if (!c.width) return;
+  const ctx = imgCtx();
+  const W = c.width, H = c.height;
+  const s = schemes[curScheme];
+  const artist = (document.getElementById('imgArtistName')||{value:'NIL'}).value || 'NIL';
+  const subtitle = (document.getElementById('imgSubtitle')||{value:''}).value || '';
+  const event = (document.getElementById('imgEvent')||{value:''}).value || '';
+  const op = ((document.getElementById('imgOpacity')||{value:90}).value) / 100;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = s.bg;
+  ctx.fillRect(0,0,W,H);
+
+  if (activeAnims.has('grid')) {
+    ctx.strokeStyle = s.c1;
+    ctx.globalAlpha = 0.04;
+    ctx.lineWidth = 1;
+    const gs = 40;
+    const off = (t * 12) % gs;
+    for (let x=0; x<W+gs; x+=gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y=-gs+off; y<H+gs; y+=gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+
+  if (activeAnims.has('rings')) {
+    const cx=W/2, cy=H/2;
+    [0.45,0.35,0.26,0.18,0.11].forEach((r,i) => {
+      const pulse = r + Math.sin(t*0.8 + i*1.1)*0.012;
+      ctx.beginPath(); ctx.arc(cx,cy,Math.min(W,H)*pulse,0,Math.PI*2);
+      ctx.strokeStyle = i%2===0?s.c1:s.c2;
+      ctx.globalAlpha = 0.08 + Math.sin(t*0.5+i)*0.04;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  if (activeAnims.has('particles')) {
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = s.c1;
+      ctx.globalAlpha = p.a * (0.7 + Math.sin(t+p.x)*0.3);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  if (activeAnims.has('scanlines')) {
+    const lh = 3;
+    for (let y=0; y<H; y+=lh*2) {
+      ctx.fillStyle = '#000';
+      ctx.globalAlpha = 0.12;
+      ctx.fillRect(0,y,W,lh);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  if (activeAnims.has('glitch') && Math.random()<0.03) {
+    const gy = Math.random()*H;
+    const gh = Math.random()*6+2;
+    const gx = (Math.random()-0.5)*20;
+    ctx.save();
+    ctx.drawImage(c, 0,gy,W,gh, gx,gy,W,gh);
+    ctx.restore();
+    ctx.fillStyle = s.c2;
+    ctx.globalAlpha = 0.15;
+    ctx.fillRect(0,gy,W,gh);
+    ctx.globalAlpha = 1;
+  }
+
+  if (activeAnims.has('noise')) {
+    for (let i=0; i<200; i++) {
+      const nx=Math.random()*W, ny=Math.random()*H;
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = Math.random()*0.04;
+      ctx.fillRect(nx,ny,1,1);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  const fs = Math.round(W * 0.075);
+  ctx.font = `700 ${fs}px 'SF Mono','Fira Code',monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = s.text;
+  ctx.globalAlpha = op;
+  ctx.fillText(artist.toUpperCase(), W/2, H/2 + fs*0.35);
+
+  if (subtitle) {
+    const sf = Math.round(fs * 0.22);
+    ctx.font = `400 ${sf}px 'SF Mono',monospace`;
+    ctx.fillStyle = s.c1;
+    ctx.globalAlpha = op * 0.7;
+    ctx.letterSpacing = '0.2em';
+    ctx.fillText(subtitle.toUpperCase(), W/2, H/2 + fs*0.35 + sf*1.8);
+  }
+  if (event) {
+    const ef = Math.round(fs * 0.17);
+    ctx.font = `400 ${ef}px 'SF Mono',monospace`;
+    ctx.fillStyle = s.c2;
+    ctx.globalAlpha = op * 0.6;
+    ctx.fillText(event.toUpperCase(), W/2, H/2 + fs*0.35 + (subtitle?fs*0.22*1.8:0) + ef*2.2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function setScheme(el) {
+  document.querySelectorAll('[data-scheme]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  curScheme = el.dataset.scheme;
+}
+
+function toggleAnim(el) {
+  const a = el.dataset.anim;
+  if (activeAnims.has(a)) { activeAnims.delete(a); el.classList.remove('active'); }
+  else { activeAnims.add(a); el.classList.add('active'); }
+}
+
+function exportCanvasPNG() {
+  const c = imgCnv();
+  const link = document.createElement('a');
+  link.download = `nil_visual_${curScheme}_frame.png`;
+  link.href = c.toDataURL('image/png');
+  link.click();
+  document.getElementById('statusTxt').textContent = 'frame exported as PNG';
+}
+
+function fmtDur(mins) {
+  const s = mins*60;
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function genVideoScript() {
+  const artist = document.getElementById('artistName').value || 'NIL';
+  const logo = document.getElementById('logoPath').value || `/path/to/${artist.toLowerCase()}_logo.png`;
+  const op = (document.getElementById('opSlider').value/100).toFixed(2);
+  const res = document.getElementById('resolution').value;
+  const [w,h] = res.split('x');
+  const out = document.getElementById('outputFile').value;
+  const dur = fmtDur(curDur);
+  const scr = `# NIL VISUAL GENERATOR // VIDEO LOOP MODE
+# Artist: ${artist.toUpperCase()} | Duration: ${curDur}min | ${w}x${h}
+
+VIDEO="/path/to/pexels_${curVStyle}_loop.mp4"
+LOGO="${logo}"
+OUTPUT="${out}"
+
+ffmpeg -stream_loop -1 -i "$VIDEO" \\
+  -i "$LOGO" \\
+  -filter_complex "
+    [0:v]scale=${w}:${h}:force_original_aspect_ratio=increase,
+         crop=${w}:${h},
+         setpts=PTS-STARTPTS[bg];
+    [1:v]scale=iw*0.35:-1,
+         format=rgba,
+         colorchannelmixer=aa=${op}[logo];
+    [bg][logo]overlay=(W-w)/2:(H-h)/2:format=auto[out]
+  " \\
+  -map "[out]" \\
+  -t ${dur} \\
+  -c:v libx264 -preset slow -crf 18 \\
+  -pix_fmt yuv420p \\
+  -movflags +faststart \\
+  -y "$OUTPUT"
+
+echo "done: $OUTPUT"`;
+  const el = document.getElementById('videoScript');
+  el.textContent = scr;
+  el.classList.add('show');
+  document.getElementById('videoCopyBtns').classList.add('show');
+  document.getElementById('statusTxt').textContent = `script ready // ${curDur}min video loop @ ${w}x${h}`;
+}
+
+function genImageScript() {
+  const artist = document.getElementById('imgArtistName').value || 'NIL';
+  const res = document.getElementById('imgResolution').value;
+  const [w,h] = res.split('x');
+  const out = document.getElementById('imgOutputFile').value;
+  const dur = fmtDur(curDurImg);
+  const s = schemes[curScheme];
+  const sub = document.getElementById('imgSubtitle').value || '';
+  const ev = document.getElementById('imgEvent').value || '';
+  const animList = [...activeAnims].join(', ');
+
+  const drawTxt = `drawtext=text='${artist.toUpperCase()}':fontsize=${Math.round(parseInt(w)*0.075)}:fontcolor=white@0.88:x=(w-text_w)/2:y=(h-text_h)/2`;
+  const subTxt = sub ? `:enable=1,drawtext=text='${sub.toUpperCase()}':fontsize=${Math.round(parseInt(w)*0.016)}:fontcolor=${s.c1}@0.7:x=(w-text_w)/2:y=(h+text_h*2)/2+${Math.round(parseInt(h)*0.09)}` : '';
+
+  const scr = `# NIL VISUAL GENERATOR // IMAGE + ANIMATION MODE
+# Artist: ${artist.toUpperCase()} | Scheme: ${curScheme.toUpperCase()}
+# Active animations: ${animList}
+# Duration: ${curDurImg}min | ${w}x${h}
+
+# Step 1: Export the frame PNG from the generator UI
+# (click "EXPORT FRAME AS PNG" button above)
+
+FRAME="~/Desktop/nil_visual_${curScheme}_frame.png"
+OUTPUT="${out}"
+
+# Step 2: Build animated video from static frame
+# Combines: zoom/ken-burns pan + overlay animations
+
+ffmpeg -loop 1 -i "$FRAME" \\
+  -vf "
+    scale=${Math.round(parseInt(w)*1.06)}:${Math.round(parseInt(h)*1.06)},
+    zoompan=z='min(zoom+0.0003,1.05)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${curDurImg*60*25}:s=${w}x${h}:fps=25,
+    ${drawTxt}${subTxt}
+  " \\
+  -t ${dur} \\
+  -c:v libx264 -preset slow -crf 18 \\
+  -pix_fmt yuv420p \\
+  -movflags +faststart \\
+  -y "$OUTPUT"
+
+echo "done: $OUTPUT"
+
+# Optional: Add audio (your mix)
+# ffmpeg -i "$OUTPUT" -i your_mix.wav \\
+#   -c:v copy -c:a aac -shortest -y final_with_audio.mp4`;
+  const el = document.getElementById('imageScript');
+  el.textContent = scr;
+  el.classList.add('show');
+  document.getElementById('imageCopyBtns').classList.add('show');
+  document.getElementById('statusTxt').textContent = `image script ready // ${curDurImg}min @ ${w}x${h} with ${animList}`;
+}
+
+function copyCode(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(()=>{
+    document.getElementById('statusTxt').textContent = 'copied to clipboard';
+    setTimeout(()=>document.getElementById('statusTxt').textContent='ready',2000);
+  });
+}
+
+updateVRings();
+renderPexels();
+</script>

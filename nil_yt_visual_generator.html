@@ -1,0 +1,622 @@
+
+<style>
+  :root {
+    --cyan: #00F0FF;
+    --pink: #FF2D78;
+    --dark: #0a0a0f;
+    --darker: #050508;
+    --glass: rgba(0,240,255,0.06);
+    --glass-border: rgba(0,240,255,0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: transparent; }
+  #app {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    background: linear-gradient(135deg, #0a0a0f 0%, #0d0715 100%);
+    color: #e0e0f0;
+    border-radius: 12px;
+    border: 0.5px solid var(--glass-border);
+    overflow: hidden;
+    min-height: 520px;
+  }
+  .header {
+    background: rgba(0,240,255,0.04);
+    border-bottom: 0.5px solid var(--glass-border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 6px var(--cyan);
+  }
+  .header h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--cyan);
+    text-transform: uppercase;
+  }
+  .header span {
+    font-size: 11px;
+    color: rgba(224,224,240,0.35);
+    margin-left: auto;
+  }
+  .body { padding: 20px; display: flex; gap: 20px; }
+  .col-left { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+  .col-right { width: 240px; display: flex; flex-direction: column; gap: 12px; }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: rgba(0,240,255,0.5);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .panel {
+    background: var(--glass);
+    border: 0.5px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+
+  .preview-box {
+    aspect-ratio: 16/9;
+    background: #05050a;
+    border: 0.5px solid var(--glass-border);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .preview-bg {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px;
+  }
+  .preview-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,240,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,240,255,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    animation: gridScroll 8s linear infinite;
+  }
+  @keyframes gridScroll {
+    from { background-position: 0 0; }
+    to { background-position: 0 32px; }
+  }
+  .tunnel-rings {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(0,240,255,0.12);
+  }
+  .logo-overlay-preview {
+    position: absolute;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-text-preview {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: rgba(255,255,255,0.85);
+    text-transform: uppercase;
+    text-shadow: 0 0 20px rgba(0,240,255,0.6);
+    transition: all 0.3s;
+  }
+  .preview-label {
+    position: absolute;
+    bottom: 8px; right: 10px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: rgba(0,240,255,0.4);
+  }
+
+  .field-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .field-row:last-child { margin-bottom: 0; }
+  .field-label {
+    font-size: 11px;
+    color: rgba(224,224,240,0.5);
+    letter-spacing: 0.08em;
+  }
+  input[type=text], input[type=number], select, textarea {
+    background: rgba(0,0,0,0.4);
+    border: 0.5px solid rgba(0,240,255,0.2);
+    border-radius: 6px;
+    color: #e0e0f0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--cyan); }
+  select option { background: #0d0715; }
+
+  .duration-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .duration-preset {
+    background: rgba(0,0,0,0.3);
+    border: 0.5px solid rgba(0,240,255,0.15);
+    border-radius: 6px;
+    color: rgba(224,224,240,0.6);
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    padding: 7px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .duration-preset:hover, .duration-preset.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(0,240,255,0.07);
+  }
+
+  .opacity-row { display: flex; align-items: center; gap: 10px; }
+  input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 3px;
+    background: rgba(0,240,255,0.2);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,240,255,0.5);
+  }
+  .opacity-val {
+    font-size: 11px;
+    color: var(--cyan);
+    min-width: 30px;
+    text-align: right;
+  }
+
+  .pexels-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .pexels-thumb {
+    aspect-ratio: 16/9;
+    border-radius: 5px;
+    border: 1.5px solid transparent;
+    background: #05050a;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    color: rgba(0,240,255,0.4);
+    letter-spacing: 0.1em;
+    text-align: center;
+    padding: 6px;
+    transition: all 0.15s;
+    overflow: hidden;
+    position: relative;
+  }
+  .pexels-thumb.selected {
+    border-color: var(--cyan);
+    box-shadow: 0 0 8px rgba(0,240,255,0.25);
+  }
+  .pexels-thumb:hover { border-color: rgba(0,240,255,0.4); }
+  .pexels-thumb .thumb-icon {
+    font-size: 18px;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .pexels-thumb .thumb-label {
+    font-size: 9px;
+    color: rgba(0,240,255,0.5);
+    letter-spacing: 0.08em;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, rgba(0,240,255,0.15), rgba(0,240,255,0.05));
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+    color: var(--cyan);
+    cursor: pointer;
+    font-family: 'SF Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    padding: 10px 16px;
+    text-align: center;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .btn-primary:hover {
+    background: rgba(0,240,255,0.18);
+    box-shadow: 0 0 16px rgba(0,240,255,0.2);
+  }
+  .btn-secondary {
+    background: rgba(0,0,0,0.3);
+    border: 0.5px solid rgba(255,45,120,0.3);
+    border-radius: 8px;
+    color: rgba(255,45,120,0.8);
+    cursor: pointer;
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 8px 14px;
+    text-align: center;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .btn-secondary:hover {
+    border-color: var(--pink);
+    color: var(--pink);
+    background: rgba(255,45,120,0.07);
+  }
+
+  .script-output {
+    background: rgba(0,0,0,0.6);
+    border: 0.5px solid rgba(0,240,255,0.15);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 10px;
+    line-height: 1.7;
+    color: rgba(0,240,255,0.7);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    white-space: pre;
+    overflow-x: auto;
+    display: none;
+  }
+  .script-output.visible { display: block; }
+
+  .copy-row {
+    display: flex; gap: 8px; margin-top: 8px;
+    display: none;
+  }
+  .copy-row.visible { display: flex; }
+
+  .status-bar {
+    background: rgba(0,0,0,0.3);
+    border-top: 0.5px solid rgba(0,240,255,0.1);
+    padding: 8px 20px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 10px;
+    color: rgba(224,224,240,0.3);
+    letter-spacing: 0.08em;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(0,240,255,0.4);
+  }
+
+  .pexels-links {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pexels-link {
+    font-size: 10px;
+    color: rgba(0,240,255,0.5);
+    cursor: pointer;
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 0.5px solid rgba(0,240,255,0.1);
+    display: flex; justify-content: space-between; align-items: center;
+    transition: all 0.15s;
+  }
+  .pexels-link:hover {
+    border-color: rgba(0,240,255,0.4);
+    color: var(--cyan);
+    background: rgba(0,240,255,0.05);
+  }
+  .pexels-link .arr { opacity: 0.5; }
+  .selected-style { color: var(--cyan); }
+  .divider { height: 0.5px; background: rgba(0,240,255,0.08); margin: 2px 0; }
+</style>
+
+<div id="app">
+  <div class="header">
+    <div class="header-dot"></div>
+    <h1>NIL Visual Generator</h1>
+    <span>youtube // techno sets</span>
+  </div>
+
+  <div class="body">
+    <div class="col-left">
+      <div>
+        <div class="section-label">preview</div>
+        <div class="preview-box" id="previewBox">
+          <div class="preview-grid"></div>
+          <div class="tunnel-rings" id="tunnelRings"></div>
+          <div class="logo-overlay-preview">
+            <div class="logo-text-preview" id="logoPreview">NIL</div>
+          </div>
+          <div class="preview-label">16:9 // preview</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-label">video style</div>
+        <div class="pexels-grid">
+          <div class="pexels-thumb selected" data-style="tunnel" onclick="selectStyle(this)">
+            <span class="thumb-icon">⬡</span>
+            <span class="thumb-label">TUNNEL<br>LOOP</span>
+          </div>
+          <div class="pexels-thumb" data-style="geometry" onclick="selectStyle(this)">
+            <span class="thumb-icon">◈</span>
+            <span class="thumb-label">ABSTRACT<br>GEOMETRY</span>
+          </div>
+          <div class="pexels-thumb" data-style="particles" onclick="selectStyle(this)">
+            <span class="thumb-icon">✦</span>
+            <span class="thumb-label">PARTICLE<br>FIELD</span>
+          </div>
+          <div class="pexels-thumb" data-style="dark_space" onclick="selectStyle(this)">
+            <span class="thumb-icon">◉</span>
+            <span class="thumb-label">DARK<br>SPACE</span>
+          </div>
+        </div>
+        <div class="pexels-links" id="pexelsLinks">
+          <div style="font-size:10px; color:rgba(0,240,255,0.3); letter-spacing:0.08em; margin-bottom:4px;">PEXELS SEARCH QUERIES ↗</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-right">
+      <div class="panel">
+        <div class="section-label">identity</div>
+        <div class="field-row">
+          <div class="field-label">ARTIST / DJ NAME</div>
+          <input type="text" id="artistName" value="NIL" placeholder="NIL" oninput="updatePreview()">
+        </div>
+        <div class="field-row">
+          <div class="field-label">LOGO FILE (optional)</div>
+          <input type="text" id="logoPath" placeholder="/path/to/logo.png">
+        </div>
+        <div class="field-row">
+          <div class="field-label">LOGO OPACITY</div>
+          <div class="opacity-row">
+            <input type="range" min="30" max="100" value="80" id="opacitySlider" oninput="updateOpacity(this.value)">
+            <span class="opacity-val" id="opacityVal">80%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-label">duration</div>
+        <div class="duration-row">
+          <div class="duration-preset" onclick="setDuration(60)">60 min</div>
+          <div class="duration-preset active" onclick="setDuration(90)">90 min</div>
+          <div class="duration-preset" onclick="setDuration(120)">2 h</div>
+          <div class="duration-preset" onclick="setDuration(180)">3 h</div>
+        </div>
+        <div class="field-row" style="margin-top:10px;">
+          <div class="field-label">CUSTOM (MINUTES)</div>
+          <input type="number" id="customDuration" placeholder="e.g. 75" min="1" max="600" oninput="setCustomDuration(this.value)">
+        </div>
+        <div id="durationDisplay" style="font-size:11px; color:var(--cyan); margin-top:6px; letter-spacing:0.08em;">→ 90:00:00 output</div>
+      </div>
+
+      <div class="panel">
+        <div class="section-label">output</div>
+        <div class="field-row">
+          <div class="field-label">RESOLUTION</div>
+          <select id="resolution">
+            <option value="1920x1080">1920×1080 FHD</option>
+            <option value="2560x1440">2560×1440 QHD</option>
+            <option value="3840x2160">3840×2160 4K</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field-label">OUTPUT FILE</div>
+          <input type="text" id="outputFile" value="~/Desktop/NIL_set_visual.mp4">
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="generateScript()">⟩ GENERATE FFMPEG SCRIPT</button>
+      <button class="btn-secondary" onclick="showPexelsTip()">⟩ PEXELS SEARCH TIPS</button>
+    </div>
+  </div>
+
+  <div style="padding: 0 20px 16px;">
+    <div class="script-output" id="scriptOutput"></div>
+    <div class="copy-row" id="copyRow">
+      <button class="btn-primary" onclick="copyScript()" style="flex:1;">⟩ COPY SCRIPT</button>
+      <button class="btn-secondary" onclick="copyScript()" style="width:auto; padding:8px 12px;">↗</button>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span id="statusText">ready // select style → set duration → generate</span>
+  </div>
+</div>
+
+<script>
+  let currentDuration = 90;
+  let currentStyle = 'tunnel';
+  let generatedScript = '';
+
+  const pexelsQueries = {
+    tunnel: [
+      { label: 'dark tunnel loop', q: 'dark+tunnel+loop+abstract' },
+      { label: 'neon corridor', q: 'neon+corridor+3d+loop' },
+      { label: 'wormhole vortex', q: 'wormhole+vortex+dark' },
+    ],
+    geometry: [
+      { label: 'abstract geometry dark', q: 'abstract+geometry+dark+loop' },
+      { label: 'sacred geometry', q: 'sacred+geometry+dark+animation' },
+      { label: 'geometric shapes black', q: 'geometric+shapes+black+3d' },
+    ],
+    particles: [
+      { label: 'particle field dark', q: 'particle+field+dark+abstract' },
+      { label: 'glitch particles', q: 'glitch+particles+dark+loop' },
+      { label: 'bokeh dark background', q: 'bokeh+dark+particles+loop' },
+    ],
+    dark_space: [
+      { label: 'dark space loop', q: 'dark+space+stars+loop' },
+      { label: 'cosmos nebula dark', q: 'cosmos+nebula+dark+abstract' },
+      { label: 'black hole visual', q: 'black+hole+abstract+loop' },
+    ],
+  };
+
+  const styleRings = {
+    tunnel: [[180,'#00F0FF',0.08],[120,'#FF2D78',0.06],[80,'#00F0FF',0.05],[50,'#a855f7',0.06],[28,'#FF2D78',0.07]],
+    geometry: [[160,'#a855f7',0.1],[110,'#00F0FF',0.07],[65,'#a855f7',0.08],[35,'#00F0FF',0.1]],
+    particles: [[170,'#00F0FF',0.06],[100,'#00F0FF',0.08],[55,'#FF2D78',0.07]],
+    dark_space: [[190,'#a855f7',0.05],[130,'#00F0FF',0.06],[70,'#FF2D78',0.07],[30,'#a855f7',0.1]],
+  };
+
+  function updateRings() {
+    const container = document.getElementById('tunnelRings');
+    container.innerHTML = '';
+    (styleRings[currentStyle] || styleRings.tunnel).forEach(([size, color, alpha]) => {
+      const d = document.createElement('div');
+      d.className = 'ring';
+      d.style.cssText = `width:${size}%;height:${size}%;border-color:${color};opacity:${alpha/0.08*0.12};`;
+      container.appendChild(d);
+    });
+  }
+
+  function updatePreview() {
+    const name = document.getElementById('artistName').value || 'NIL';
+    document.getElementById('logoPreview').textContent = name.toUpperCase();
+  }
+
+  function updateOpacity(v) {
+    document.getElementById('opacityVal').textContent = v + '%';
+    document.getElementById('logoPreview').style.opacity = v / 100;
+  }
+
+  function selectStyle(el) {
+    document.querySelectorAll('.pexels-thumb').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    currentStyle = el.dataset.style;
+    updateRings();
+    renderPexelsLinks();
+    document.getElementById('statusText').textContent = `style: ${currentStyle.replace('_',' ')} selected`;
+  }
+
+  function renderPexelsLinks() {
+    const container = document.getElementById('pexelsLinks');
+    const queries = pexelsQueries[currentStyle] || [];
+    container.innerHTML = '<div style="font-size:10px;color:rgba(0,240,255,0.3);letter-spacing:0.08em;margin-bottom:4px;">PEXELS SEARCH QUERIES ↗</div>';
+    queries.forEach(q => {
+      const a = document.createElement('a');
+      a.className = 'pexels-link';
+      a.href = `https://www.pexels.com/search/videos/${q.q}/`;
+      a.target = '_blank';
+      a.innerHTML = `<span>${q.label}</span><span class="arr">↗</span>`;
+      container.appendChild(a);
+    });
+  }
+
+  function setDuration(mins) {
+    currentDuration = mins;
+    document.querySelectorAll('.duration-preset').forEach(e => e.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('customDuration').value = '';
+    updateDurationDisplay();
+  }
+
+  function setCustomDuration(v) {
+    if (!v) return;
+    currentDuration = parseInt(v);
+    document.querySelectorAll('.duration-preset').forEach(e => e.classList.remove('active'));
+    updateDurationDisplay();
+  }
+
+  function updateDurationDisplay() {
+    const h = Math.floor(currentDuration / 60);
+    const m = currentDuration % 60;
+    const label = h > 0 ? `${h}h ${m > 0 ? m + 'min' : ''}` : `${m}min`;
+    document.getElementById('durationDisplay').textContent = `→ ${label.trim()} output`;
+  }
+
+  function generateScript() {
+    const artist = document.getElementById('artistName').value || 'NIL';
+    const logoPath = document.getElementById('logoPath').value;
+    const opacity = (document.getElementById('opacitySlider').value / 100).toFixed(2);
+    const resolution = document.getElementById('resolution').value;
+    const [w, h] = resolution.split('x');
+    const output = document.getElementById('outputFile').value || `~/Desktop/${artist.replace(/\s+/g,'_')}_set_visual.mp4`;
+    const totalSec = currentDuration * 60;
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    const duration = `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
+    let script = '';
+    script += `# ─────────────────────────────────────────────\n`;
+    script += `# NIL VISUAL GENERATOR // ${artist.toUpperCase()}\n`;
+    script += `# Duration: ${currentDuration}min | Style: ${currentStyle.replace('_',' ').toUpperCase()}\n`;
+    script += `# Resolution: ${w}x${h}\n`;
+    script += `# ─────────────────────────────────────────────\n\n`;
+    script += `# 1. SET YOUR PATHS\n`;
+    script += `VIDEO="/path/to/pexels_${currentStyle}_video.mp4"\n`;
+
+    if (logoPath) {
+      script += `LOGO="${logoPath}"\n`;
+    } else {
+      script += `LOGO="/path/to/${artist.toLowerCase().replace(/\s+/g,'_')}_logo.png"\n`;
+    }
+    script += `OUTPUT="${output}"\n\n`;
+
+    script += `# 2. LOOP + OVERLAY + EXPORT\n`;
+    script += `ffmpeg -stream_loop -1 -i "$VIDEO" \\\n`;
+    script += `  -i "$LOGO" \\\n`;
+    script += `  -filter_complex "\n`;
+    script += `    [0:v]scale=${w}:${h}:force_original_aspect_ratio=increase,\n`;
+    script += `         crop=${w}:${h},\n`;
+    script += `         setpts=PTS-STARTPTS[bg];\n`;
+    script += `    [1:v]scale=iw*0.35:-1,\n`;
+    script += `         format=rgba,\n`;
+    script += `         colorchannelmixer=aa=${opacity}[logo];\n`;
+    script += `    [bg][logo]overlay=(W-w)/2:(H-h)/2:format=auto[out]\n`;
+    script += `  " \\\n`;
+    script += `  -map "[out]" \\\n`;
+    script += `  -t ${duration} \\\n`;
+    script += `  -c:v libx264 -preset slow -crf 18 \\\n`;
+    script += `  -pix_fmt yuv420p \\\n`;
+    script += `  -movflags +faststart \\\n`;
+    script += `  -y "$OUTPUT"\n\n`;
+    script += `echo "✓ Done: $OUTPUT"`;
+
+    generatedScript = script;
+    const el = document.getElementById('scriptOutput');
+    el.textContent = script;
+    el.classList.add('visible');
+    document.getElementById('copyRow').classList.add('visible');
+    document.getElementById('statusText').textContent = `script generated // ${currentDuration}min @ ${w}×${h}`;
+  }
+
+  function copyScript() {
+    navigator.clipboard.writeText(generatedScript).then(() => {
+      document.getElementById('statusText').textContent = 'copied to clipboard ✓';
+      setTimeout(() => document.getElementById('statusText').textContent = 'script ready // paste in terminal', 2000);
+    });
+  }
+
+  function showPexelsTip() {
+    sendPrompt('Gib mir die besten Pexels Suchbegriffe für düstere Techno-Visuals: Tunnel, Geometry, Particles und Dark Space – mit Download-Tipps für 4K MP4.');
+  }
+
+  updateRings();
+  renderPexelsLinks();
+  updateDurationDisplay();
+</script>
