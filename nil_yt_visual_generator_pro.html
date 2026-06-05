@@ -6,7 +6,7 @@
   <title>Generative VJ Cyber Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Exo+2:wght@500;700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;500;700&family=Saira+Condensed:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Exo+2:wght@500;700&family=Fira+Code:wght@400;500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;500;700&family=Saira+Condensed:wght@500;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -126,11 +126,22 @@
       const [trackTicker, setTrackTicker] = useState('LIVE FROM THE UNDERGROUND // MIX 042');
       const [currentTrack, setCurrentTrack] = useState('UNKNOWN PROJECTION SET');
       const [logoData, setLogoData] = useState(null);
-      const [logoMeta, setLogoMeta] = useState({ scale: 0.9, opacity: 0.84, x: 0, y: 0, glitch: true, glow: true, glowColor: '#5bf18e', glowSize: 20 });
+      const [logoMeta, setLogoMeta] = useState({ scale: 0.9, opacity: 0.84, x: 0, y: 0, glitch: true, glow: true, glowColor: '#5bf18e', glowSize: 20, shape: 'normal', autoHide: false });
+      const [showQr, setShowQr] = useState(false);
+      const [qrUrl, setQrUrl] = useState('');
+      const [scOverlayVisible, setScOverlayVisible] = useState(false);
+      const [scOverlayPosition, setScOverlayPosition] = useState('bottom-right');
       const [audioMode, setAudioMode] = useState('microphone');
       const [audioFileUrl, setAudioFileUrl] = useState('');
       const [audioUrl, setAudioUrl] = useState('');
+      const [videoFileUrl, setVideoFileUrl] = useState('');
+      const [videoFileName, setVideoFileName] = useState('');
+      const [backgroundImageUrl, setBackgroundImageUrl] = useState('');
+      const [backgroundImageName, setBackgroundImageName] = useState('');
       const [bandSettings, setBandSettings] = useState({ bass: 1.4, mid: 1.0, high: 1.2, bassSmooth: true, midSmooth: true, highSmooth: true });
+      const videoObjectUrlRef = useRef(null);
+      const imageObjectUrlRef = useRef(null);
+      const backgroundImageRef = useRef(null);
       const [dispBandLevels, setDispBandLevels] = useState({ bass: 0, mid: 0, high: 0 });
       const [bpmState, setBpmState] = useState({ bpm: 128, lastTap: null, autoStrobe: false });
       const [strobeStrength, setStrobeStrength] = useState(0.5);
@@ -165,14 +176,76 @@
         setConfirmModal({ show: false, message: '', resolver: null });
       };
 
-      const styleOptions = ['Hypnotic Tunnel', 'Cyber Grid', 'Particle Swarm', 'External Media'];
-      const fontOptions = ['Inter', 'Orbitron', 'Exo 2', 'Saira Condensed', 'Audiowide'];
+      const styleOptions = ['Hypnotic Tunnel', 'Cyber Grid', 'Particle Swarm', 'Neon Circuit', 'Hologram Plexus', 'Radial Flux', 'Pulse Matrix', 'Audio Rings', 'Chromatic Burst', 'Vertex Storm', 'Laser Grid', 'Digital Mesh', 'Meta Vortex', 'Spectrum Web', 'Data Cascade', 'External Media'];
+      const styleDescriptions = {
+        'Hypnotic Tunnel': 'Infinite vortex with geometric distortion',
+        'Cyber Grid': 'Retro synth floor with horizon pitch',
+        'Particle Swarm': 'Dust field driven by high frequencies',
+        'Neon Circuit': 'Electric trace network with glowing nodes',
+        'Hologram Plexus': 'Triangular hologram mesh in 3D space',
+        'Radial Flux': 'Radiating energy beams from the center',
+        'Pulse Matrix': 'Vertical pulse columns synced to bass',
+        'Audio Rings': 'Concentric rings driven by the spectrum',
+        'Chromatic Burst': 'Spectral shards with color bloom',
+        'Vertex Storm': 'Flying vertices and geometric shards',
+        'Laser Grid': 'Neon laser beams on a synthetic grid',
+        'Digital Mesh': 'Pixel mesh with data-noise intensity',
+        'Meta Vortex': 'Cosmic vortex with layered depth',
+        'Spectrum Web': 'Radial web of spectrum lines',
+        'Data Cascade': 'Falling data streams like matrix rain',
+        'External Media': 'Upload or stream a looped video'
+      };
+      const fontOptions = ['Inter', 'Orbitron', 'Exo 2', 'Saira Condensed', 'Audiowide', 'Fira Code', 'JetBrains Mono', 'VT323', 'Share Tech Mono'];
+      const scOverlayPositions = {
+        'bottom-right': { right: '1rem', bottom: '1rem', left: 'auto', top: 'auto' },
+        'top-right': { right: '1rem', top: '1rem', left: 'auto', bottom: 'auto' },
+        'bottom-left': { left: '1rem', bottom: '1rem', right: 'auto', top: 'auto' }
+      };
+      const getScPlayerStyle = () => ({
+        position: 'absolute',
+        width: '20rem',
+        height: '6rem',
+        zIndex: 40,
+        borderRadius: '1rem',
+        overflow: 'hidden',
+        opacity: scOverlayVisible ? 1 : 0,
+        transform: scOverlayVisible ? 'translateY(0)' : 'translateY(12px)',
+        transition: 'opacity 0.5s ease, transform 0.5s ease',
+        pointerEvents: scOverlayVisible ? 'auto' : 'none',
+        ...scOverlayPositions[scOverlayPosition]
+      });
+      useEffect(() => {
+        if (audioMode !== 'embed') {
+          setScOverlayVisible(false);
+          return undefined;
+        }
+        let cancelled = false;
+        let timeoutId = null;
+        const positions = ['bottom-right', 'top-right', 'bottom-left'];
+        const scheduleOverlay = () => {
+          if (cancelled) return;
+          const show = Math.random() > 0.35;
+          setScOverlayVisible(show);
+          setScOverlayPosition(positions[Math.floor(Math.random() * positions.length)]);
+          const nextDelay = 3600 + Math.random() * 6200;
+          timeoutId = window.setTimeout(scheduleOverlay, nextDelay);
+        };
+        scheduleOverlay();
+        return () => {
+          cancelled = true;
+          if (timeoutId) window.clearTimeout(timeoutId);
+        };
+      }, [audioMode, currentTrack]);
       const fontFamilyStack = {
         'Inter': 'Inter, ui-sans-serif, system-ui, sans-serif',
         'Orbitron': 'Orbitron, ui-sans-serif, system-ui, sans-serif',
         'Exo 2': 'Exo 2, ui-sans-serif, system-ui, sans-serif',
         'Saira Condensed': 'Saira Condensed, ui-sans-serif, system-ui, sans-serif',
-        'Audiowide': 'Audiowide, ui-sans-serif, system-ui, sans-serif'
+        'Audiowide': 'Audiowide, ui-sans-serif, system-ui, sans-serif',
+        'Fira Code': 'Fira Code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        'JetBrains Mono': 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        'VT323': 'VT323, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        'Share Tech Mono': 'Share Tech Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
       };
       const accentPalette = {
         'toxic-green': { bg: '#07080f', accent: '#6cffb8', alt: '#ff7e18' },
@@ -471,9 +544,15 @@
           };
 
           const drawBackground = () => {
-            if (selectedStyle === 'External Media' && videoRef.current && videoRef.current.readyState >= 2) {
-              ctx.drawImage(videoRef.current, 0, 0, width, height);
-              return;
+            if (selectedStyle === 'External Media') {
+              if (backgroundImageUrl && backgroundImageRef.current) {
+                ctx.drawImage(backgroundImageRef.current, 0, 0, width, height);
+                return;
+              }
+              if (videoRef.current && videoRef.current.readyState >= 2) {
+                ctx.drawImage(videoRef.current, 0, 0, width, height);
+                return;
+              }
             }
             if (selectedStyle === 'Hypnotic Tunnel') {
               const columns = 14;
@@ -497,7 +576,6 @@
               }
             } else if (selectedStyle === 'Cyber Grid') {
               const horizon = height * (0.38 + motionDrift * 0.06);
-              const pitch = 0.8 + bass * 0.28;
               const depth = 18;
               ctx.strokeStyle = hexToRgba(accent.alt || accent.accent, 0.18 + bass * 0.12);
               ctx.lineWidth = 1 * pulseFactor;
@@ -524,6 +602,195 @@
                 const spread = (x - w / 2) * (1 + 0.85 * z);
                 return w / 2 + spread * (0.35 + bass * 0.5) + offset * z;
               }
+            } else if (selectedStyle === 'Particle Swarm') {
+              const count = 220;
+              for (let i = 0; i < count; i += 1) {
+                const progress = i / count;
+                const radius = 2 + Math.sin(progress * Math.PI * 4 + now * 1.8) * 1.3;
+                const angle = progress * Math.PI * 2 + now * (0.17 + mid * 0.3) + motionDrift * 2.4;
+                const radiusOffset = 160 + progress * 360 + bass * 100;
+                const x = width / 2 + Math.cos(angle) * radiusOffset;
+                const y = height / 2 + Math.sin(angle) * radiusOffset * 0.42;
+                ctx.fillStyle = hexToRgba(accent.accent, particleAlpha * (0.14 + progress * 0.18));
+                ctx.beginPath();
+                ctx.arc(x, y, radius * (1 + high * 0.9), 0, Math.PI * 2);
+                ctx.fill();
+              }
+            } else if (selectedStyle === 'Neon Circuit') {
+              const nodes = 14;
+              const glow = hexToRgba(accent.accent, 0.26 + bass * 0.18);
+              ctx.lineWidth = 1 + bass * 1.2;
+              ctx.strokeStyle = glow;
+              for (let i = 0; i < nodes; i += 1) {
+                const x = (i / (nodes - 1)) * width;
+                const y = height * 0.22 + Math.sin(now * 1.6 + i * 1.05) * height * 0.14;
+                ctx.beginPath();
+                ctx.moveTo(x, height * 0.14);
+                ctx.lineTo(x, y);
+                ctx.lineTo(width - x, height * 0.86);
+                ctx.stroke();
+              }
+              for (let i = 0; i < nodes; i += 1) {
+                const x = (i / (nodes - 1)) * width;
+                const y = height * 0.22 + Math.sin(now * 1.6 + i * 1.05) * height * 0.14;
+                ctx.fillStyle = hexToRgba(accent.alt, 0.94);
+                ctx.beginPath();
+                ctx.arc(x, y, 4 + high * 3, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            } else if (selectedStyle === 'Hologram Plexus') {
+              const points = [];
+              const cols = 10;
+              const rows = 8;
+              for (let y = 0; y <= rows; y += 1) {
+                for (let x = 0; x <= cols; x += 1) {
+                  points.push({ x: x / cols * width, y: y / rows * height, offset: Math.sin(now * 1.7 + x * 0.45 + y * 0.35) * 18 });
+                }
+              }
+              ctx.strokeStyle = hexToRgba(accent.accent, 0.18 + mid * 0.26);
+              ctx.lineWidth = 1;
+              points.forEach((p, index) => {
+                const connected = [index + 1, index + cols + 1, index - cols - 1].filter((id) => id >= 0 && id < points.length);
+                connected.forEach((id) => {
+                  if (points[id]) {
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + Math.sin(p.offset) * 8, p.y + Math.cos(p.offset) * 8);
+                    ctx.lineTo(points[id].x + Math.sin(points[id].offset) * 8, points[id].y + Math.cos(points[id].offset) * 8);
+                    ctx.stroke();
+                  }
+                });
+              });
+            } else if (selectedStyle === 'Radial Flux') {
+              const beams = 18;
+              ctx.lineWidth = 2;
+              for (let i = 0; i < beams; i += 1) {
+                const angle = (i / beams) * Math.PI * 2 + now * 0.23;
+                const length = width * 0.5 + Math.sin(now * 2.1 + i) * width * 0.08;
+                ctx.strokeStyle = hexToRgba(i % 2 ? accent.alt : accent.accent, 0.18 + 0.1 * bass);
+                ctx.beginPath();
+                ctx.moveTo(width / 2, height / 2);
+                ctx.lineTo(width / 2 + Math.cos(angle) * length, height / 2 + Math.sin(angle) * length);
+                ctx.stroke();
+              }
+              ctx.fillStyle = hexToRgba(accent.accent, 0.14);
+              ctx.beginPath();
+              ctx.arc(width / 2, height / 2, width * 0.12 + bass * 28, 0, Math.PI * 2);
+              ctx.fill();
+            } else if (selectedStyle === 'Pulse Matrix') {
+              const cols = 14;
+              const barWidth = width / cols * 0.68;
+              for (let i = 0; i < cols; i += 1) {
+                const heightFactor = 0.2 + Math.sin(now * 1.8 + i * 0.6) * 0.25 + bass * 0.22;
+                const px = i / cols * width + width * 0.02;
+                const barHeight = height * heightFactor;
+                ctx.fillStyle = hexToRgba(accent.accent, 0.26 + bass * 0.28);
+                ctx.fillRect(px, height - barHeight, barWidth, barHeight);
+                ctx.fillStyle = hexToRgba(accent.alt, 0.14 + mid * 0.18);
+                ctx.fillRect(px + barWidth * 0.3, height - barHeight * 0.64, barWidth * 0.4, barHeight * 0.64);
+              }
+            } else if (selectedStyle === 'Audio Rings') {
+              const rings = 5;
+              for (let i = 0; i < rings; i += 1) {
+                const radius = width * ((i + 1) / (rings + 1)) * 0.26 + bass * 18;
+                ctx.strokeStyle = hexToRgba(i % 2 ? accent.alt : accent.accent, 0.14 + i * 0.06);
+                ctx.lineWidth = 3 - i * 0.3;
+                ctx.beginPath();
+                ctx.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
+                ctx.stroke();
+              }
+            } else if (selectedStyle === 'Chromatic Burst') {
+              const shards = 18;
+              for (let i = 0; i < shards; i += 1) {
+                const angle = i / shards * Math.PI * 2 + now * 0.45;
+                const base = width * 0.42;
+                const length = base + Math.sin(now * 2.3 + i) * width * 0.08 + high * 24;
+                ctx.fillStyle = i % 3 === 0 ? hexToRgba(accent.alt, 0.18) : hexToRgba(accent.accent, 0.14);
+                ctx.beginPath();
+                ctx.moveTo(width / 2, height / 2);
+                ctx.lineTo(width / 2 + Math.cos(angle) * length, height / 2 + Math.sin(angle) * length);
+                ctx.lineTo(width / 2 + Math.cos(angle + 0.18) * (length * 0.8), height / 2 + Math.sin(angle + 0.18) * (length * 0.8));
+                ctx.closePath();
+                ctx.fill();
+              }
+            } else if (selectedStyle === 'Vertex Storm') {
+              const shards = 24;
+              for (let i = 0; i < shards; i += 1) {
+                const x = Math.random() * width;
+                const y = (Math.sin(now * 0.9 + i) * 0.5 + 0.5) * height;
+                const size = 6 + high * 16;
+                ctx.fillStyle = hexToRgba(accent.accent, 0.12 + i / shards * 0.14);
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + size, y + size * 0.3);
+                ctx.lineTo(x - size * 0.4, y + size * 0.8);
+                ctx.fill();
+              }
+            } else if (selectedStyle === 'Laser Grid') {
+              const lineCount = 20;
+              ctx.lineWidth = 1;
+              for (let i = 0; i < lineCount; i += 1) {
+                const t = i / (lineCount - 1);
+                const brightness = 0.1 + bass * 0.14 + (t * 0.6);
+                ctx.strokeStyle = hexToRgba(accent.alt, brightness);
+                ctx.beginPath();
+                ctx.moveTo(t * width, 0);
+                ctx.lineTo(t * width, height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, t * height);
+                ctx.lineTo(width, t * height);
+                ctx.stroke();
+              }
+              ctx.save();
+              ctx.globalAlpha = 0.08 + bass * 0.14;
+              ctx.fillStyle = accent.accent;
+              ctx.fillRect(width * 0.48, 0, width * 0.04, height);
+              ctx.fillRect(0, height * 0.48, width, height * 0.04);
+              ctx.restore();
+            } else if (selectedStyle === 'Digital Mesh') {
+              const size = 20;
+              for (let x = 0; x < width; x += size) {
+                for (let y = 0; y < height; y += size) {
+                  const alpha = 0.08 + Math.random() * 0.1 + mid * 0.06;
+                  ctx.fillStyle = hexToRgba(accent.alt, alpha);
+                  ctx.fillRect(x, y, size - 2, size - 2);
+                }
+              }
+            } else if (selectedStyle === 'Meta Vortex') {
+              const layers = 7;
+              for (let i = layers; i > 0; i -= 1) {
+                const radius = width * (i / layers) * 0.26 + Math.sin(now * 1.3 + i) * 12;
+                ctx.strokeStyle = hexToRgba(i % 2 ? accent.accent : accent.alt, 0.08 + i * 0.03);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(width / 2, height / 2, radius, now * 0.2 * i, Math.PI * 2 + now * 0.2 * i);
+                ctx.stroke();
+              }
+            } else if (selectedStyle === 'Spectrum Web') {
+              const rays = 24;
+              for (let i = 0; i < rays; i += 1) {
+                const angle = (i / rays) * Math.PI * 2 + now * 0.18;
+                ctx.strokeStyle = hexToRgba(i % 2 ? accent.alt : accent.accent, 0.16);
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(width / 2, height / 2);
+                ctx.lineTo(width / 2 + Math.cos(angle) * width * 0.48, height / 2 + Math.sin(angle) * height * 0.48);
+                ctx.stroke();
+              }
+              ctx.strokeStyle = hexToRgba(accent.accent, 0.08 + bass * 0.08);
+              for (let i = 1; i <= 4; i += 1) {
+                ctx.beginPath();
+                ctx.arc(width / 2, height / 2, (width * 0.12) * i, 0, Math.PI * 2);
+                ctx.stroke();
+              }
+            } else if (selectedStyle === 'Data Cascade') {
+              const columns = 32;
+              for (let i = 0; i < columns; i += 1) {
+                const x = (i / columns) * width;
+                const heightFactor = Math.abs(Math.sin(now * 2.4 + i * 0.6));
+                ctx.fillStyle = hexToRgba(accent.alt, 0.16 + bass * 0.12);
+                ctx.fillRect(x, height * (1 - heightFactor), width / columns * 0.8, heightFactor * height);
+              }
             } else {
               const count = 220;
               for (let i = 0; i < count; i += 1) {
@@ -549,24 +816,55 @@
             const baseSize = Math.min(width, height) * 0.22 * logoMeta.scale * pulseScale;
             const x = width / 2 + logoMeta.x * width * 0.16;
             const y = height / 2 + logoMeta.y * height * 0.12;
+            let shouldHideLogo = false;
+            if (logoMeta.autoHide) {
+              try {
+                const sampleSize = Math.max(8, Math.min(24, Math.floor(baseSize * 0.2)));
+                const sampleX = Math.max(0, Math.floor(x - sampleSize / 2));
+                const sampleY = Math.max(0, Math.floor(y - sampleSize / 2));
+                const sampleW = Math.min(sampleSize, width - sampleX);
+                const sampleH = Math.min(sampleSize, height - sampleY);
+                const sampleData = ctx.getImageData(sampleX, sampleY, sampleW, sampleH).data;
+                let luminance = 0;
+                for (let i = 0; i < sampleData.length; i += 4) {
+                  luminance += 0.2126 * sampleData[i] + 0.7152 * sampleData[i + 1] + 0.0722 * sampleData[i + 2];
+                }
+                luminance /= sampleData.length / 4;
+                if (luminance > 220 || luminance < 28) {
+                  shouldHideLogo = true;
+                }
+              } catch (err) {
+                // canvas sampling may fail if context is not ready
+              }
+            }
+            if (shouldHideLogo) return;
             ctx.save();
             ctx.globalAlpha = logoMeta.opacity;
             if (logoMeta.glow) {
               ctx.shadowColor = logoMeta.glowColor;
               ctx.shadowBlur = 18 + bass * logoMeta.glowSize * pulseScale;
             }
+            const rot = logoMeta.rotate || 0;
+            const rotSpeed = logoMeta.rotateSpeed || 0;
+            const currentRot = rot + rotSpeed * now;
+            ctx.translate(x, y);
+            ctx.rotate(currentRot);
+            if (logoMeta.shape === 'round') {
+              ctx.beginPath();
+              ctx.arc(0, 0, baseSize / 2, 0, Math.PI * 2);
+              ctx.clip();
+            }
             if (logoMeta.glitch && bass > 0.3) {
               for (let i = 0; i < 3; i += 1) {
                 const sliceHeight = (img.height / 6) * (0.7 + Math.random() * 0.3);
-                const yOffset = y + (Math.random() - 0.5) * 20 * bass * (i + 1);
+                const yOffset = (Math.random() - 0.5) * 20 * bass * (i + 1);
                 const xOffset = ((Math.random() - 0.5) * 24) * bass * (i + 1);
-                ctx.drawImage(img, 0, i * sliceHeight, img.width, sliceHeight, x - baseSize / 2 + xOffset, yOffset, baseSize, sliceHeight * (baseSize / img.width));
+                ctx.drawImage(img, 0, i * sliceHeight, img.width, sliceHeight, -baseSize / 2 + xOffset, yOffset, baseSize, sliceHeight * (baseSize / img.width));
               }
             }
-            ctx.drawImage(img, x - baseSize / 2, y - baseSize / 2, baseSize, baseSize);
+            ctx.drawImage(img, -baseSize / 2, -baseSize / 2, baseSize, baseSize);
             ctx.restore();
           };
-
           const drawOverlay = () => {
             ctx.save();
             const gradient = ctx.createRadialGradient(width * 0.8, height * 0.22, 0, width * 0.8, height * 0.22, width * 0.6);
@@ -672,6 +970,20 @@
           };
 
           const drawHud = () => {
+            const getTextBackdropColor = (x, y, w, h) => {
+              if (selectedStyle !== 'External Media') return 'rgba(0,0,0,0.18)';
+              try {
+                const sample = ctx.getImageData(x, y, Math.min(w, width - x), Math.min(h, height - y)).data;
+                let lum = 0;
+                for (let i = 0; i < sample.length; i += 4) {
+                  lum += 0.2126 * sample[i] + 0.7152 * sample[i + 1] + 0.0722 * sample[i + 2];
+                }
+                lum /= sample.length / 4;
+                return lum > 138 ? 'rgba(0,0,0,0.62)' : 'rgba(255,255,255,0.18)';
+              } catch (e) {
+                return 'rgba(0,0,0,0.52)';
+              }
+            };
             // Reserve safe areas to avoid overlap with DOM marquees and overlays.
             // Compute dynamically from DOM elements when available so different font sizes / zooms are handled.
             let domTopReserved = 64;
@@ -699,6 +1011,13 @@
             const titleSize = textFit(currentTrack, titleMax, 34, 16, '700');
             const titleLines = wrapText(currentTrack, titleMax, titleSize, '700');
             const titleTop = Math.max(domTopReserved + 8, height - domBottomReserved - titleLines.length * (titleSize + 6));
+            const titleBlockHeight = titleLines.length * (titleSize + 6) + 18;
+            const titleBackdropColor = getTextBackdropColor(12, titleTop - 12, titleMax + 20, titleBlockHeight);
+            ctx.save();
+            ctx.fillStyle = titleBackdropColor;
+            ctx.fillRect(12, titleTop - 12, titleMax + 20, titleBlockHeight);
+            ctx.restore();
+
             ctx.save();
             ctx.fillStyle = `rgba(247, 255, 204, ${animationSettings.titlePulse ? 0.94 + Math.sin(now * 1.8) * 0.06 : 0.94})`;
             ctx.textAlign = 'left';
@@ -709,11 +1028,18 @@
             });
             ctx.restore();
 
+            const bandText = `BASS ${Math.round(bass * 100)} — MID ${Math.round(mid * 100)} — HIGH ${Math.round(high * 100)}`;
+            const bandBackdropColor = getTextBackdropColor(12, height - domBottomReserved + 6, 360, 24);
+            ctx.save();
+            ctx.fillStyle = bandBackdropColor;
+            ctx.fillRect(12, height - domBottomReserved + 6, 360, 24);
+            ctx.restore();
+
             ctx.save();
             ctx.fillStyle = 'rgba(255,255,255,0.24)';
             ctx.font = `500 12px ${fontFamily}`;
             // draw band levels above the bottom reserved area
-            ctx.fillText(`BASS ${Math.round(bass * 100)} — MID ${Math.round(mid * 100)} — HIGH ${Math.round(high * 100)}`, 22, height - domBottomReserved + 12);
+            ctx.fillText(bandText, 22, height - domBottomReserved + 12);
             ctx.restore();
           };
 
@@ -742,7 +1068,7 @@
           cancelAnimationFrame(animationRef.current);
           window.removeEventListener('resize', resize);
         };
-      }, [selectedStyle, activeEffects, animationSettings, selectedFont, frameRate, paused, themeAccent, trackTicker, currentTrack, logoData, logoMeta, audioMode, audioFileUrl, audioUrl, bpmState, bandSettings, strobeStrength, fxParams]);
+      }, [selectedStyle, activeEffects, animationSettings, selectedFont, frameRate, paused, themeAccent, trackTicker, currentTrack, logoData, logoMeta, audioMode, audioFileUrl, audioUrl, bpmState, bandSettings, strobeStrength, fxParams, backgroundImageUrl]);
 
       const handleAudioFileChange = (event) => {
         const file = event.target.files?.[0];
@@ -753,12 +1079,120 @@
         setStatusMessage('Loaded local mix. Starting audio engine...');
       };
 
+      const handleVideoFileChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (videoObjectUrlRef.current) {
+          URL.revokeObjectURL(videoObjectUrlRef.current);
+        }
+        const url = URL.createObjectURL(file);
+        videoObjectUrlRef.current = url;
+        setVideoFileUrl(url);
+        setVideoFileName(file.name);
+        setBackgroundImageUrl('');
+        setBackgroundImageName('');
+        setExternalVideoSource('');
+        setStatusMessage('Lokaler Film-Hintergrund geladen. Drücke Activate Background Film.');
+      };
+
+      const handleBackgroundImageChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (imageObjectUrlRef.current) {
+          URL.revokeObjectURL(imageObjectUrlRef.current);
+        }
+        const url = URL.createObjectURL(file);
+        imageObjectUrlRef.current = url;
+        const image = new Image();
+        image.src = url;
+        backgroundImageRef.current = image;
+        setBackgroundImageUrl(url);
+        setBackgroundImageName(file.name);
+        setVideoFileUrl('');
+        setVideoFileName('');
+        setExternalVideoSource('');
+        setStatusMessage('Lokaler Bild-Hintergrund geladen. Drücke Activate Background Image.');
+      };
+
+      useEffect(() => {
+        if (selectedStyle === 'External Media' && videoRef.current) {
+          const src = videoFileUrl || externalVideoSource;
+          if (src) {
+            videoRef.current.src = src;
+            videoRef.current.loop = true;
+            videoRef.current.muted = true;
+            videoRef.current.play().catch(() => {});
+          }
+        }
+      }, [selectedStyle, videoFileUrl, externalVideoSource]);
+
+      useEffect(() => {
+        return () => {
+          if (videoObjectUrlRef.current) {
+            URL.revokeObjectURL(videoObjectUrlRef.current);
+          }
+          if (imageObjectUrlRef.current) {
+            URL.revokeObjectURL(imageObjectUrlRef.current);
+          }
+          backgroundImageRef.current = null;
+        };
+      }, []);
+
       const blobToDataURL = (blob) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
+
+      const exportScenePNG = () => {
+        try {
+          const canvas = canvasRef.current;
+          if (!canvas) return setStatusMessage('Canvas not available for export.');
+          const data = canvas.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.href = data;
+          a.download = `vj-scene-${Date.now()}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setStatusMessage('Scene exported as PNG.');
+        } catch (e) {
+          console.warn(e);
+          setStatusMessage('Export failed.');
+        }
+      };
+
+      const randomizeSettings = () => {
+        // randomize a subset of visual settings for quick experimentation
+        const randBool = () => Math.random() > 0.5;
+        const randRange = (a, b) => a + Math.random() * (b - a);
+        const style = styleOptions[Math.floor(Math.random() * styleOptions.length)];
+        const accentKeys = Object.keys(accentPalette);
+        const positionKeys = ['bottom-right', 'top-right', 'bottom-left'];
+        const logoShapes = ['normal', 'round'];
+        setActiveEffects((prev) => Object.fromEntries(Object.keys(prev).map(k => [k, randBool()])));
+        setFxParams({ aberrationIntensity: randRange(0, 1.8), vhsAmount: randRange(0, 1), noiseAmount: randRange(0, 1), pulseScale: randRange(0.85, 1.3) });
+        setBandSettings({ bass: randRange(0.6, 1.8), mid: randRange(0.6, 1.8), high: randRange(0.6, 1.8), bassSmooth: randBool(), midSmooth: randBool(), highSmooth: randBool() });
+        setAnimationSettings({ tickerWave: randBool(), titlePulse: randBool(), logoPulse: randBool(), backgroundDrift: randBool() });
+        setSelectedStyle(style);
+        setSelectedFont(fontOptions[Math.floor(Math.random() * fontOptions.length)]);
+        setSelectedScheme(Object.keys(COLOR_SCHEMES)[Math.floor(Math.random() * Object.keys(COLOR_SCHEMES).length)]);
+        setThemeAccent(accentKeys[Math.floor(Math.random() * accentKeys.length)]);
+        setScOverlayPosition(positionKeys[Math.floor(Math.random() * positionKeys.length)]);
+        setLogoMeta((prev) => ({
+          ...prev,
+          shape: logoShapes[Math.floor(Math.random() * logoShapes.length)],
+          autoHide: randBool(),
+          scale: randRange(0.6, 1.1),
+          x: randRange(-0.25, 0.25),
+          y: randRange(-0.2, 0.2),
+          opacity: randRange(0.5, 1),
+          rotate: prev.rotate || 0,
+          rotateSpeed: randRange(-0.02, 0.02)
+        }));
+        setStatusMessage('Random settings applied.');
+      };
 
       const handleSoundCloudImport = async (link) => {
         if (!link) {
@@ -777,6 +1211,8 @@
           // Prefer embedding the oEmbed HTML so user can play the track in-place.
           setAudioMode('embed');
           setAudioUrl(link);
+          setScOverlayVisible(true);
+          setScOverlayPosition('bottom-right');
           try {
             const playerContainer = document.getElementById('sc-player');
             if (playerContainer) {
@@ -837,6 +1273,41 @@
           }
           // store raw link for later
           setStatusMessage(`Imported SoundCloud: ${data.title || link}`);
+          // generate QR code for the track link and show modal
+          try {
+            if (window.QRious) {
+              setQrUrl(link);
+              setShowQr(true);
+              // create canvas and draw QR into sc-player small overlay
+              const qrCanvas = document.createElement('canvas');
+              qrCanvas.width = 200; qrCanvas.height = 200;
+              const q = new window.QRious({ element: qrCanvas, value: link, size: 200 });
+              // Insert a small QR overlay to the right of the player
+              const playerContainer = document.getElementById('sc-player');
+              if (playerContainer) {
+                let qrWrap = document.getElementById('sc-qr-wrap');
+                if (!qrWrap) {
+                  qrWrap = document.createElement('div');
+                  qrWrap.id = 'sc-qr-wrap';
+                  qrWrap.style.position = 'absolute';
+                  qrWrap.style.right = '6px';
+                  qrWrap.style.top = '6px';
+                  qrWrap.style.width = '96px';
+                  qrWrap.style.height = '96px';
+                  qrWrap.style.borderRadius = '8px';
+                  qrWrap.style.overflow = 'hidden';
+                  qrWrap.style.background = 'rgba(0,0,0,0.7)';
+                  qrWrap.style.padding = '6px';
+                  qrWrap.style.zIndex = '60';
+                  playerContainer.appendChild(qrWrap);
+                }
+                qrWrap.innerHTML = '';
+                qrWrap.appendChild(qrCanvas);
+              }
+            }
+          } catch (e) {
+            console.warn('QR generation failed', e);
+          }
         } catch (err) {
           console.error(err);
           setStatusMessage('Failed to import SoundCloud link.');
@@ -907,6 +1378,16 @@
                   React.createElement('span', { className: 'inline-flex items-center justify-center w-4 h-4 text-cyan-400' }, '⚡'),
                   'Realtime Engine'
                 ),
+                React.createElement('div', { className: 'flex flex-wrap items-center justify-end gap-2' },
+                  React.createElement('button', {
+                    onClick: randomizeSettings,
+                    className: 'rounded-2xl bg-fuchsia-500/10 border border-fuchsia-400/20 px-3 py-2 text-xs font-semibold text-fuchsia-100 hover:bg-fuchsia-500/20 transition'
+                  }, 'Random All'),
+                  React.createElement('button', {
+                    onClick: exportScenePNG,
+                    className: 'rounded-2xl bg-sky-600/12 border border-sky-500/20 px-3 py-2 text-xs font-semibold text-sky-200 hover:bg-sky-600/18 transition'
+                  }, 'Sichern & Exportieren')
+                ),
                 React.createElement('p', { className: 'text-xs text-slate-500' }, status)
               )
             ),
@@ -916,7 +1397,7 @@
                   React.createElement('canvas', { ref: canvasRef, className: 'absolute inset-0 w-full h-full bg-black' }),
                   React.createElement('video', {
                     ref: videoRef,
-                    src: externalVideoSource,
+                    src: videoFileUrl || externalVideoSource,
                     className: 'hidden',
                     muted: true,
                     loop: true,
@@ -931,7 +1412,7 @@
                     loop: true
                   }),
                   // SoundCloud embed player container (oEmbed HTML will be inserted here)
-                  React.createElement('div', { id: 'sc-player', className: 'absolute right-4 bottom-4 z-40 w-80 h-24 rounded-lg overflow-hidden' }),
+                  React.createElement('div', { id: 'sc-player', className: 'absolute z-40 w-80 h-24 rounded-lg overflow-hidden transition-all duration-500', style: getScPlayerStyle() }),
                   React.createElement('div', { className: 'absolute inset-x-0 top-4 px-5' },
                     React.createElement('div', { className: 'space-y-1' },
                       React.createElement('div', { className: 'marquee h-6 overflow-hidden rounded-full bg-black/40 px-3 border border-cyan-400/15' },
@@ -1046,12 +1527,12 @@
                           React.createElement('span', null, style),
                           React.createElement('span', { className: 'inline-flex items-center justify-center w-4 h-4 text-slate-300' }, '▶')
                         ),
-                        React.createElement('p', { className: 'mt-1 text-xs text-slate-500' }, style === 'Hypnotic Tunnel' ? 'Infinite vortex with geometric distortion' : style === 'Cyber Grid' ? 'Retro synth floor with horizon pitch' : style === 'Particle Swarm' ? 'Dust field driven by high frequencies' : 'Upload or stream a looped video')
+                        React.createElement('p', { className: 'mt-1 text-xs text-slate-500' }, styleDescriptions[style] || 'Upload or stream a looped video')
                       )
                     )),
                   ),
                   selectedStyle === 'External Media' && React.createElement('div', { className: 'mt-4 space-y-3' },
-                    React.createElement('label', { className: 'block text-sm font-medium text-slate-300' }, 'Video URL / Local File'),
+                    React.createElement('label', { className: 'block text-sm font-medium text-slate-300' }, 'Video URL'),
                     React.createElement('input', {
                       type: 'text',
                       value: externalVideoSource,
@@ -1059,16 +1540,45 @@
                       placeholder: 'https://example.com/loop.mp4',
                       className: 'w-full rounded-2xl border border-slate-800 bg-slate-950/90 px-3 py-3 text-sm text-slate-200 focus:border-cyan-400 outline-none'
                     }),
+                    React.createElement('label', { className: 'block text-sm font-medium text-slate-300' }, 'Oder Film-Upload'),
+                    React.createElement('input', {
+                      type: 'file',
+                      accept: 'video/*',
+                      onChange: handleVideoFileChange,
+                      className: 'w-full rounded-2xl border border-slate-800 bg-slate-950/90 px-3 py-3 text-sm text-slate-200 file:rounded-xl file:border-0 file:bg-cyan-500/15 file:text-cyan-200 file:font-semibold'
+                    }),
+                    videoFileName && React.createElement('p', { className: 'text-xs text-slate-400' }, `Uploaded video: ${videoFileName}`),
+                    React.createElement('label', { className: 'block text-sm font-medium text-slate-300 mt-4' }, 'Oder Bild-Hintergrund'),
+                    React.createElement('input', {
+                      type: 'file',
+                      accept: 'image/*',
+                      onChange: handleBackgroundImageChange,
+                      className: 'w-full rounded-2xl border border-slate-800 bg-slate-950/90 px-3 py-3 text-sm text-slate-200 file:rounded-xl file:border-0 file:bg-cyan-500/15 file:text-cyan-200 file:font-semibold'
+                    }),
+                    backgroundImageName && React.createElement('p', { className: 'text-xs text-slate-400' }, `Uploaded image: ${backgroundImageName}`),
                     React.createElement('button', {
                       onClick: () => {
-                        if (videoRef.current) {
-                          videoRef.current.src = externalVideoSource;
+                        const src = videoFileUrl || externalVideoSource;
+                        if (videoRef.current && src) {
+                          videoRef.current.src = src;
+                          videoRef.current.loop = true;
+                          videoRef.current.muted = true;
                           videoRef.current.play().catch(() => {});
-                          setStatusMessage('External video loading...');
+                          setStatusMessage('Film-Hintergrund aktiviert.');
+                          setSelectedStyle('External Media');
                         }
                       },
                       className: 'w-full rounded-2xl bg-cyan-500/15 border border-cyan-500/30 py-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 transition'
-                    }, 'Load Video')
+                    }, 'Activate Background Film'),
+                    React.createElement('button', {
+                      onClick: () => {
+                        if (backgroundImageUrl) {
+                          setStatusMessage('Bild-Hintergrund aktiviert.');
+                          setSelectedStyle('External Media');
+                        }
+                      },
+                      className: 'w-full rounded-2xl bg-emerald-500/15 border border-emerald-500/30 py-3 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/20 transition'
+                    }, 'Activate Background Image')
                   )
                 ),
                 React.createElement('div', { className: 'p-4 rounded-3xl glass-panel border border-white/10' },
@@ -1184,6 +1694,25 @@
                         onChange: (e) => setLogoMeta((prev) => ({ ...prev, glowColor: e.target.value })),
                         className: 'h-12 w-full rounded-2xl border border-slate-800 bg-slate-950/90 p-1'
                       })
+                    ),
+                    React.createElement('div', { className: 'grid gap-3 pt-3 border-t border-white/10' },
+                      React.createElement('div', { className: 'grid gap-2 text-sm' },
+                        React.createElement('span', { className: 'text-slate-400' }, 'Logo Shape'),
+                        React.createElement('div', { className: 'flex gap-2 flex-wrap' },
+                          ['normal', 'round'].map((shape) => (
+                            React.createElement('button', {
+                              key: shape,
+                              type: 'button',
+                              onClick: () => setLogoMeta((prev) => ({ ...prev, shape })),
+                              className: `rounded-2xl px-3 py-2 text-sm transition ${logoMeta.shape === shape ? 'bg-cyan-500/20 border border-cyan-400/30 text-cyan-100' : 'bg-slate-950/80 border border-slate-800 text-slate-300 hover:bg-slate-900/90'}`
+                            }, shape === 'round' ? 'Round' : 'Normal')
+                          ))
+                        )
+                      ),
+                      React.createElement('label', { className: 'inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/90 px-3 py-3 text-sm' },
+                        React.createElement('input', { type: 'checkbox', checked: logoMeta.autoHide, onChange: (e) => setLogoMeta((prev) => ({ ...prev, autoHide: e.target.checked })) }),
+                        'Hide logo automatically on high-contrast backgrounds'
+                      )
                     )
                   )
                 ),
@@ -1345,6 +1874,14 @@
         )
       );
     }
+
+    // QR lib (Qrious) — used to generate track QR codes
+    (function(){
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
+      s.onload = () => { console.info('QRious loaded'); };
+      document.head.appendChild(s);
+    })();
 
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
   </script>
