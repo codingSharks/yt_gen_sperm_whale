@@ -234,6 +234,44 @@
         setStatusMessage(`Saved preset ${slot + 1}: ${updated[slot].label}`);
       };
 
+      const exportPresets = () => {
+        try {
+          const data = localStorage.getItem('vj-presets') || '[]';
+          const blob = new Blob([data], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'vj-presets.json';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          setStatusMessage('Presets exported to vj-presets.json');
+        } catch (e) {
+          console.warn(e);
+          setStatusMessage('Export failed.');
+        }
+      };
+
+      const handleImportPresetsFile = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const json = ev.target.result;
+            const parsed = JSON.parse(json);
+            localStorage.setItem('vj-presets', JSON.stringify(parsed));
+            setPresets((prev) => prev.map((p, i) => ({ ...p, settings: (parsed[i] || {}).settings || (prev[i] && prev[i].settings) })));
+            setStatusMessage('Presets imported successfully.');
+          } catch (err) {
+            console.warn(err);
+            setStatusMessage('Failed to import presets: invalid JSON.');
+          }
+        };
+        reader.readAsText(file);
+      };
+
       const handleLogoUpload = async (file) => {
         if (!file) return;
         const reader = new FileReader();
@@ -839,12 +877,20 @@
                   React.createElement('input', { type: 'checkbox', checked: modalDontAsk, onChange: (e) => setModalDontAsk(e.target.checked) }),
                   'Nie wieder fragen'
                 ),
+                React.createElement('div', { className: 'mt-3 flex items-center gap-2' },
+                  React.createElement('button', { onClick: exportPresets, className: 'rounded-2xl bg-sky-600/12 border border-sky-500/20 px-3 py-2 text-sm text-sky-200 hover:bg-sky-600/18' }, 'Export Presets'),
+                  React.createElement('label', { className: 'rounded-2xl bg-emerald-600/6 border border-emerald-500/12 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-600/10 cursor-pointer' },
+                    'Import Presets',
+                    React.createElement('input', { type: 'file', accept: 'application/json', onChange: handleImportPresetsFile, className: 'hidden' })
+                  )
+                ),
                 React.createElement('div', { className: 'flex justify-end gap-3' },
                   React.createElement('button', { onClick: () => resolveConfirmModal(false), className: 'rounded-2xl px-4 py-2 bg-slate-800 text-slate-200' }, 'Nein'),
                   React.createElement('button', { onClick: () => resolveConfirmModal(true), className: 'rounded-2xl px-4 py-2 bg-cyan-500 text-white' }, 'Ja, importieren')
                 )
               )
-            ),
+                    ),
+                    audioMode === 'embed' && React.createElement('p', { className: 'text-xs text-amber-300 mt-2' }, 'Hinweis: Eingebettete SoundCloud-Player sind cross-origin; der interne Audio-Analyzer ist in diesem Modus nicht verfügbar.' ),
             React.createElement('header', { className: 'flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4' },
               React.createElement('div', { className: 'space-y-2' },
                 React.createElement('div', { className: 'flex items-center gap-3' },
