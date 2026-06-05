@@ -134,6 +134,7 @@
       const [dispBandLevels, setDispBandLevels] = useState({ bass: 0, mid: 0, high: 0 });
       const [bpmState, setBpmState] = useState({ bpm: 128, lastTap: null, autoStrobe: false });
       const [strobeStrength, setStrobeStrength] = useState(0.5);
+      const [fxParams, setFxParams] = useState({ aberrationIntensity: 1.0, vhsAmount: 0.8, noiseAmount: 0.6, pulseScale: 1.0 });
       const [presets, setPresets] = useState(DEFAULT_PRESETS);
       const [status, setStatus] = useState('READY // hook audio, load logo, and launch the dashboard.');
       const [themeAccent, setThemeAccent] = useState('toxic-green');
@@ -203,6 +204,7 @@
           setLogoMeta(settings.logoMeta);
           setBandSettings(settings.bandSettings);
           setBpmState(settings.bpmState);
+          setFxParams(settings.fxParams || fxParams);
           setStatusMessage(`Loaded preset ${slot + 1}: ${settings.label}`);
         } else {
           setStatusMessage(`Preset ${slot + 1} is empty.`);
@@ -222,6 +224,7 @@
           currentTrack,
           logoMeta,
           bandSettings,
+          fxParams,
           bpmState
         };
         localStorage.setItem('vj-presets', JSON.stringify(saved));
@@ -275,6 +278,14 @@
             sourceRef.current.connect(analyser);
             analyser.connect(context.destination);
             setStatusMessage('Microphone input active.');
+          } else if (audioMode === 'embed') {
+            // When using an embedded SoundCloud widget (cross-origin iframe) we cannot
+            // access the raw audio for WebAudio analysis. Inform the user and skip analyzer.
+            audioContextRef.current = null;
+            analyserRef.current = null;
+            dataRef.current = null;
+            setStatusMessage('Embedded SoundCloud player active — audio analyzer unavailable for cross-origin embeds.');
+            return;
           } else {
             if (!sourceNode) return;
             analyser.disconnect();
@@ -496,7 +507,7 @@
             if (!logoData) return;
             const img = new Image();
             img.src = logoData;
-            const pulseScale = animationSettings.logoPulse ? 1 + Math.sin(now * 2.1) * 0.02 : 1;
+            const pulseScale = animationSettings.logoPulse ? 1 + Math.sin(now * 2.1) * 0.02 * (fxParams.pulseScale || 1) : (fxParams.pulseScale || 1);
             const baseSize = Math.min(width, height) * 0.22 * logoMeta.scale * pulseScale;
             const x = width / 2 + logoMeta.x * width * 0.16;
             const y = height / 2 + logoMeta.y * height * 0.12;
@@ -555,9 +566,10 @@
             }
             if (activeEffects.vhs) {
               ctx.save();
-              ctx.globalAlpha = 0.08 + Math.sin(now * 14) * 0.05;
+              ctx.globalAlpha = (0.08 + Math.sin(now * 14) * 0.05) * (fxParams.vhsAmount || 1);
               ctx.fillStyle = '#fff';
-              for (let i = 0; i < 22; i += 1) {
+              const vhsCount = Math.max(6, Math.floor(22 * (fxParams.vhsAmount || 1)));
+              for (let i = 0; i < vhsCount; i += 1) {
                 const y = Math.random() * height;
                 const h = 1 + Math.random() * 2;
                 ctx.fillRect(0, y, width, h);
@@ -566,7 +578,7 @@
               ctx.save();
               ctx.lineWidth = 1;
               ctx.strokeStyle = `rgba(255,255,255,${0.08 + bass * 0.1})`;
-              const glitchOffset = Math.sin(now * 5) * 8 * high;
+              const glitchOffset = Math.sin(now * 5) * 8 * high * (fxParams.vhsAmount || 1);
               ctx.beginPath();
               ctx.moveTo(0, height * 0.18 + glitchOffset);
               ctx.lineTo(width, height * 0.18 - glitchOffset);
@@ -587,9 +599,10 @@
             }
             if (activeEffects.noise) {
               ctx.save();
-              ctx.globalAlpha = 0.08;
+              ctx.globalAlpha = 0.08 * (fxParams.noiseAmount || 1);
               ctx.fillStyle = '#ffffff';
-              for (let n = 0; n < 900; n += 1) {
+              const noiseCount = Math.floor(900 * (fxParams.noiseAmount || 1));
+              for (let n = 0; n < noiseCount; n += 1) {
                 const rx = Math.random() * width;
                 const ry = Math.random() * height;
                 ctx.fillRect(rx, ry, 1, 1);
@@ -606,7 +619,7 @@
             const tempCtx = temp.getContext('2d');
             tempCtx.drawImage(canvas, 0, 0, width, height);
             ctx.clearRect(0, 0, width, height);
-            const shift = 8 + high * 14;
+            const shift = (8 + high * 14) * (fxParams.aberrationIntensity || 1);
             ctx.globalAlpha = 0.85;
             ctx.drawImage(temp, shift * 0.18, 0, width, height);
             ctx.globalCompositeOperation = 'lighter';
@@ -691,7 +704,7 @@
           cancelAnimationFrame(animationRef.current);
           window.removeEventListener('resize', resize);
         };
-      }, [selectedStyle, activeEffects, animationSettings, selectedFont, frameRate, paused, themeAccent, trackTicker, currentTrack, logoData, logoMeta, audioMode, audioFileUrl, audioUrl, bpmState, bandSettings, strobeStrength]);
+      }, [selectedStyle, activeEffects, animationSettings, selectedFont, frameRate, paused, themeAccent, trackTicker, currentTrack, logoData, logoMeta, audioMode, audioFileUrl, audioUrl, bpmState, bandSettings, strobeStrength, fxParams]);
 
       const handleAudioFileChange = (event) => {
         const file = event.target.files?.[0];
@@ -723,8 +736,23 @@
           // data contains title, author_name, thumbnail_url, html
           setCurrentTrack(data.title || link);
           setTrackTicker(`${data.author_name || 'SoundCloud'} // ${data.title || ''}`);
-          setAudioMode('url');
+          // Prefer embedding the oEmbed HTML so user can play the track in-place.
+          setAudioMode('embed');
           setAudioUrl(link);
+          try {
+            const playerContainer = document.getElementById('sc-player');
+            if (playerContainer) {
+              playerContainer.innerHTML = data.html || '';
+              // Some oEmbed HTML contains inline styles that set width/height; ensure it fits.
+              const iframe = playerContainer.querySelector('iframe');
+              if (iframe) {
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+              }
+            }
+          } catch (e) {
+            // ignore DOM injection errors
+          }
           // Attempt to import thumbnail as logo, but ask user first
           if (data.thumbnail_url) {
             try {
@@ -833,6 +861,8 @@
                     src: audioMode === 'upload' ? audioFileUrl : audioMode === 'url' ? audioUrl : undefined,
                     loop: true
                   }),
+                  // SoundCloud embed player container (oEmbed HTML will be inserted here)
+                  React.createElement('div', { id: 'sc-player', className: 'absolute right-4 bottom-4 z-40 w-80 h-24 rounded-lg overflow-hidden' }),
                   React.createElement('div', { className: 'absolute inset-x-0 top-4 px-5' },
                     React.createElement('div', { className: 'space-y-1' },
                       React.createElement('div', { className: 'marquee h-6 overflow-hidden rounded-full bg-black/40 px-3 border border-cyan-400/15' },
@@ -1106,6 +1136,51 @@
                     ))
                   ),
                   React.createElement('div', { className: 'mt-4 space-y-3' },
+                    React.createElement('p', { className: 'text-sm text-slate-300' }, 'FX Parameters'),
+                    React.createElement('div', { className: 'space-y-3' },
+                      React.createElement('label', { className: 'text-xs text-slate-400' }, 'Chromatic Aberration'),
+                      React.createElement('input', {
+                        type: 'range',
+                        min: 0,
+                        max: 2,
+                        step: 0.05,
+                        value: fxParams.aberrationIntensity,
+                        onChange: (e) => setFxParams((p) => ({ ...p, aberrationIntensity: parseFloat(e.target.value) })),
+                        className: 'w-full accent-emerald-400'
+                      }),
+                      React.createElement('label', { className: 'text-xs text-slate-400' }, 'VHS Amount'),
+                      React.createElement('input', {
+                        type: 'range',
+                        min: 0,
+                        max: 1,
+                        step: 0.05,
+                        value: fxParams.vhsAmount,
+                        onChange: (e) => setFxParams((p) => ({ ...p, vhsAmount: parseFloat(e.target.value) })),
+                        className: 'w-full accent-emerald-400'
+                      }),
+                      React.createElement('label', { className: 'text-xs text-slate-400' }, 'Noise Amount'),
+                      React.createElement('input', {
+                        type: 'range',
+                        min: 0,
+                        max: 1,
+                        step: 0.05,
+                        value: fxParams.noiseAmount,
+                        onChange: (e) => setFxParams((p) => ({ ...p, noiseAmount: parseFloat(e.target.value) })),
+                        className: 'w-full accent-emerald-400'
+                      }),
+                      React.createElement('label', { className: 'text-xs text-slate-400' }, 'Pulse Scale'),
+                      React.createElement('input', {
+                        type: 'range',
+                        min: 0.8,
+                        max: 1.4,
+                        step: 0.01,
+                        value: fxParams.pulseScale,
+                        onChange: (e) => setFxParams((p) => ({ ...p, pulseScale: parseFloat(e.target.value) })),
+                        className: 'w-full accent-emerald-400'
+                      })
+                    )
+                  ),
+                  React.createElement('div', { className: 'mt-4 space-y-3' },
                     React.createElement('label', { className: 'text-sm text-slate-300' }, 'Frame Rate'),
                     React.createElement('div', { className: 'grid grid-cols-3 gap-2' },
                       [15, 24, 60].map((rate) => (
@@ -1180,6 +1255,16 @@
                       )
                       )
                   )
+                ),
+                React.createElement('div', { className: 'mt-4 flex items-center justify-between gap-3' },
+                  React.createElement('button', {
+                    onClick: () => {
+                      try { localStorage.removeItem('scCoverPref'); } catch (e) {}
+                      setStatusMessage('SoundCloud-Cover-Präferenz zurückgesetzt.');
+                    },
+                    className: 'rounded-2xl bg-amber-500/12 border border-amber-400/20 px-4 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-500/18'
+                  }, 'Reset SoundCloud-Cover-Preference'),
+                  React.createElement('div', { className: 'text-xs text-slate-400' }, `Cover-Pref: ${(() => { try { return localStorage.getItem('scCoverPref') || 'not set'; } catch (e) { return 'unknown'; } })()}`)
                 )
               )
             )
