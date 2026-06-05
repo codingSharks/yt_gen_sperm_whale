@@ -748,6 +748,29 @@
               if (iframe) {
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
+                // Load SoundCloud Widget API and initialize the widget to receive events
+                const initWidget = () => {
+                  try {
+                    if (window.SC && window.SC.Widget) {
+                      const widget = window.SC.Widget(iframe);
+                      widget.bind(window.SC.Widget.Events.PLAY, () => setStatusMessage('SoundCloud: playing'));
+                      widget.bind(window.SC.Widget.Events.PAUSE, () => setStatusMessage('SoundCloud: paused'));
+                      widget.bind(window.SC.Widget.Events.FINISH, () => setStatusMessage('SoundCloud: finished'));
+                      // When widget starts, we cannot analyze audio due to cross-origin restrictions
+                      widget.bind(window.SC.Widget.Events.PLAY_PROGRESS, (e) => {
+                        // e.relativePosition gives progress 0..1; reflect in UI if desired
+                      });
+                    } else {
+                      const s = document.createElement('script');
+                      s.src = 'https://w.soundcloud.com/player/api.js';
+                      s.onload = () => { try { initWidget(); } catch (err) {} };
+                      document.body.appendChild(s);
+                    }
+                  } catch (err) {
+                    console.warn('Widget init failed', err);
+                  }
+                };
+                initWidget();
               }
             }
           } catch (e) {
@@ -1145,6 +1168,7 @@
                         max: 2,
                         step: 0.05,
                         value: fxParams.aberrationIntensity,
+                        title: 'Adjust chromatic split intensity',
                         onChange: (e) => setFxParams((p) => ({ ...p, aberrationIntensity: parseFloat(e.target.value) })),
                         className: 'w-full accent-emerald-400'
                       }),
@@ -1155,6 +1179,7 @@
                         max: 1,
                         step: 0.05,
                         value: fxParams.vhsAmount,
+                        title: 'Amount of VHS noise and glitch overlays',
                         onChange: (e) => setFxParams((p) => ({ ...p, vhsAmount: parseFloat(e.target.value) })),
                         className: 'w-full accent-emerald-400'
                       }),
@@ -1165,6 +1190,7 @@
                         max: 1,
                         step: 0.05,
                         value: fxParams.noiseAmount,
+                        title: 'Perlin / analog noise amplitude',
                         onChange: (e) => setFxParams((p) => ({ ...p, noiseAmount: parseFloat(e.target.value) })),
                         className: 'w-full accent-emerald-400'
                       }),
@@ -1175,6 +1201,7 @@
                         max: 1.4,
                         step: 0.01,
                         value: fxParams.pulseScale,
+                        title: 'Scale multiplier for logo and pulse animations',
                         onChange: (e) => setFxParams((p) => ({ ...p, pulseScale: parseFloat(e.target.value) })),
                         className: 'w-full accent-emerald-400'
                       })
